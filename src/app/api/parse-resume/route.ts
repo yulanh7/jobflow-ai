@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       const pdfParse = require("pdf-parse");
       const data = await pdfParse(buffer);
       text = data.text;
+      text = data.text.replace(/\n\s*\n/g, "\n").trim();
     } else if (
       file.type ===
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
