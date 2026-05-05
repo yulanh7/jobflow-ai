@@ -10,15 +10,18 @@ export async function POST(req: NextRequest) {
     if (!resumeText || !jobDescription) {
       return NextResponse.json(
         { error: "Resume text and job description are required" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     // Use gemini-2.5-flash-lite — fast response with sufficient free tier quota
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     const prompt = `
-      You are an expert recruitment consultant.
-      Analyze the RESUME against the JOB DESCRIPTION.
+      You are a strict and consistent recruitment consultant. 
+      Score the candidate objectively based ONLY on explicit evidence in the resume.
+      Do not infer or assume skills that are not explicitly mentioned.
+      A score of 70+ requires direct skill matches. A score of 90+ requires exceptional alignment.
+
       
       RESUME: ${resumeText}
       JOB DESCRIPTION: ${jobDescription}
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
     const responseText = result.response.text();
     console.log(
       "Using API Key:",
-      process.env.GEMINI_API_KEY?.slice(0, 5) + "****",
+      process.env.GEMINI_API_KEY?.slice(0, 5) + "****"
     );
 
     // --- 稳健的 JSON 提取逻辑 ---
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
       console.error("JSON Parse Error. Raw response:", responseText);
       return NextResponse.json(
         { error: "AI returned an invalid format. Please try again." },
-        { status: 500 },
+        { status: 500 }
       );
     }
   } catch (error: any) {
@@ -71,13 +74,13 @@ export async function POST(req: NextRequest) {
           error:
             "API rate limit exceeded. Please wait a minute before retrying.",
         },
-        { status: 429 },
+        { status: 429 }
       );
     }
 
     return NextResponse.json(
       { error: "Failed to connect to AI engine" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

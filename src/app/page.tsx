@@ -9,7 +9,7 @@ import { Upload, FileText, Loader2, X, CheckCircle2 } from "lucide-react";
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "success">(
-    "idle",
+    "idle"
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -71,10 +71,13 @@ export default function Home() {
         body: JSON.stringify({ resumeText, jobDescription }),
       });
 
+      // 临时调试
+      console.log("Resume text length:", resumeText.length);
+      console.log("Resume text preview:", resumeText.slice(0, 200));
+
       const data = await res.json();
 
       if (!res.ok) {
-        // 捕获 429 或 500 错误
         alert(data.error || "AI is busy, please try again in a minute.");
         return;
       }
