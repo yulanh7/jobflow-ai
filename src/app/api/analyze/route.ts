@@ -17,23 +17,29 @@ export async function POST(req: NextRequest) {
     // Use gemini-2.5-flash-lite — fast response with sufficient free tier quota
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     const prompt = `
-      You are a strict and consistent recruitment consultant. 
-      Score the candidate objectively based ONLY on explicit evidence in the resume.
-      Do not infer or assume skills that are not explicitly mentioned.
-      A score of 70+ requires direct skill matches. A score of 90+ requires exceptional alignment.
-
-      
-      RESUME: ${resumeText}
-      JOB DESCRIPTION: ${jobDescription}
-
-      Respond ONLY with a valid JSON object. Do not include markdown formatting.
-      {
-        "score": number,
-        "summary": "string",
-        "strengths": ["string"],
-        "gaps": ["string"],
-        "suggestions": ["string"]
-      }
+    You are a strict and consistent recruitment consultant.
+    Evaluate the candidate's resume against the job description using explicit evidence only.
+    
+    Scoring criteria:
+    - 80-100: Strong match, most required skills explicitly present
+    - 60-79: Good match, majority of skills present with minor gaps  
+    - 40-59: Moderate match, some key skills missing
+    - 0-39: Weak match, significant gaps
+    
+    RESUME:
+    ${resumeText}
+    
+    JOB DESCRIPTION:
+    ${jobDescription}
+    
+    Respond ONLY with a valid JSON object. Do not include markdown formatting.
+    {
+      "score": number,
+      "summary": "string",
+      "strengths": ["string"],
+      "gaps": ["string"],
+      "suggestions": ["string"]
+    }
     `;
 
     const result = await model.generateContent(prompt);
