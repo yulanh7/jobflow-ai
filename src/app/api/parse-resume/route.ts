@@ -3,10 +3,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-
-// Disable worker for server-side usage
-pdfjsLib.GlobalWorkerOptions.workerSrc = "";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,10 +10,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json(
-        { error: "No file provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
@@ -25,20 +18,9 @@ export async function POST(req: NextRequest) {
     let text = "";
 
     if (file.type === "application/pdf") {
-      const uint8Array = new Uint8Array(bytes);
-      const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
-      const pages: string[] = [];
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const pageText = content.items
-          .map((item: any) => ("str" in item ? item.str : ""))
-          .join(" ");
-        pages.push(pageText);
-      }
-
-      text = pages.join("\n");
+      const pdfParse = require("pdf-parse");
+      const data = await pdfParse(buffer);
+      text = data.text;
     } else if (
       file.type ===
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -47,7 +29,9 @@ export async function POST(req: NextRequest) {
       text = result.value;
     } else {
       return NextResponse.json(
-        { error: "Unsupported file type. Please upload a PDF or Word document." },
+        {
+          error: "Unsupported file type. Please upload a PDF or Word document.",
+        },
         { status: 400 }
       );
     }
