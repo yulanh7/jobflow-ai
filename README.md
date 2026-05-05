@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+JobFlow AI (Canberra Professional Edition)
+An AI-driven career portal designed for tech professionals and government contractors in Canberra. This project showcases high-end UI/UX, AI agent integration, and modern web engineering standards.
 
-## Getting Started
+🌟 Key Features
+AI Career Concierge: An interactive AI assistant for tech stack deep-dives.
 
-First, run the development server:
+Alignment Analytics: Private dashboard for real-time Job Description (JD) matching.
 
-```bash
+Premium Visuals: Apple/Linear-inspired aesthetics with Glassmorphism and Framer Motion.
+
+🛠 Tech Stack
+Framework: Next.js 15 (App Router)
+
+Styling: Tailwind CSS, Shadcn UI
+
+Animation: Framer Motion
+
+Deployment: Vercel (Edge Network)
+
+🤖 AI-Powered Workflow
+To maintain high-velocity development and context accuracy, this project uses a custom context-merging script.
+
+1. Synchronize Context
+Generate a full-code snapshot for AI assistants:
+
+Bash
+node merge-code.js
+This command bundles the /src directory into all_code.txt to bypass AI context window limitations.
+
+2. Strategic Collaboration
+We use Gemini as the Strategic Architect and Claude Code for CLI execution.
+
+Prompting Standard: Always provide the latest all_code.txt to the AI to ensure consistent implementation.
+
+🚀 Getting Started
+First, install dependencies:
+
+Bash
+npm install
+Then, run the development server:
+
+Bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Open http://localhost:3000 to view the local build.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+📜 Professional Standards
+Conventional Commits: Strictly following feat:, style:, refactor:, etc.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Bilingual Logic: Strategic communication in Chinese; professional English for codebase and UI.
