@@ -13,14 +13,12 @@ export default function Home() {
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 同时加一个state存储解析出的文本
   const [resumeText, setResumeText] = useState<string>("");
 
   const [jobDescription, setJobDescription] = useState<string>("");
   const [analysis, setAnalysis] = useState<any>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
-  // 替换原来的 handleFileChange
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -53,6 +51,7 @@ export default function Home() {
     }
   };
 
+  // Reset all upload state
   const resetUpload = () => {
     setFile(null);
     setStatus("idle");
@@ -60,34 +59,34 @@ export default function Home() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-// src/app/page.tsx 中的 handleAnalyze 修改
-const handleAnalyze = async () => {
-  if (!resumeText || !jobDescription) return;
-  setAnalyzing(true);
+  // Handle file selection and trigger resume parsing
+  const handleAnalyze = async () => {
+    if (!resumeText || !jobDescription) return;
+    setAnalyzing(true);
 
-  try {
-    const res = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resumeText, jobDescription }),
-    });
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeText, jobDescription }),
+      });
 
-    const data = await res.json();
-    
-    if (!res.ok) {
-      // 捕获 429 或 500 错误
-      alert(data.error || "AI is busy, please try again in a minute.");
-      return;
+      const data = await res.json();
+
+      if (!res.ok) {
+        // 捕获 429 或 500 错误
+        alert(data.error || "AI is busy, please try again in a minute.");
+        return;
+      }
+
+      setAnalysis(data);
+    } catch (err) {
+      console.error("Analysis failed:", err);
+      alert("Check your internet connection or API Quota.");
+    } finally {
+      setAnalyzing(false);
     }
-    
-    setAnalysis(data);
-  } catch (err) {
-    console.error("Analysis failed:", err);
-    alert("Check your internet connection or API Quota.");
-  } finally {
-    setAnalyzing(false);
-  }
-};
+  };
 
   return (
     <main className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden font-[family-name:var(--font-geist-sans)]">
@@ -211,6 +210,92 @@ const handleAnalyze = async () => {
             </span>
           </div>
         </GlassConsole>
+        {/* Analysis Results Panel */}
+        {analysis && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="relative z-10 w-full max-w-2xl px-6 mt-6"
+          >
+            <GlassConsole className="p-8">
+              {/* Score */}
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-lg font-semibold tracking-tight">
+                  Alignment Report
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-4xl font-bold text-indigo-400">
+                    {analysis.score}
+                  </span>
+                  <span className="text-zinc-500 text-sm">/100</span>
+                </div>
+              </div>
+
+              {/* Score Bar */}
+              <div className="w-full h-1.5 bg-white/5 rounded-full mb-8 overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${analysis.score}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="h-full bg-indigo-500 rounded-full"
+                />
+              </div>
+
+              {/* Summary */}
+              <p className="text-zinc-400 text-sm leading-relaxed mb-8">
+                {analysis.summary}
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Strengths */}
+                <div>
+                  <h3 className="text-xs uppercase tracking-widest text-green-400 mb-3">
+                    Strengths
+                  </h3>
+                  <ul className="space-y-2">
+                    {analysis.strengths?.map((item: string, i: number) => (
+                      <li key={i} className="text-sm text-zinc-300 flex gap-2">
+                        <span className="text-green-500 shrink-0">+</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Gaps */}
+                <div>
+                  <h3 className="text-xs uppercase tracking-widest text-red-400 mb-3">
+                    Gaps
+                  </h3>
+                  <ul className="space-y-2">
+                    {analysis.gaps?.map((item: string, i: number) => (
+                      <li key={i} className="text-sm text-zinc-300 flex gap-2">
+                        <span className="text-red-500 shrink-0">−</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Suggestions */}
+              <div>
+                <h3 className="text-xs uppercase tracking-widest text-indigo-400 mb-3">
+                  Suggestions
+                </h3>
+                <ul className="space-y-2">
+                  {analysis.suggestions?.map((item: string, i: number) => (
+                    <li key={i} className="text-sm text-zinc-300 flex gap-2">
+                      <span className="text-indigo-400 shrink-0">→</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </GlassConsole>
+          </motion.div>
+        )}
       </section>
     </main>
   );
