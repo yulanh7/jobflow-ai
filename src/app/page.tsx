@@ -62,6 +62,88 @@ interface LearningPlanResult {
   plans: SkillPlan[];
 }
 
+interface ValidationResult {
+  passed: string[];
+  warnings: string[];
+}
+
+const BANNED_WORDS = [
+  "ensure", "crucial", "vital", "leverage", "seamless", "seamlessly",
+  "comprehensive", "robust", "innovative", "cutting-edge", "dynamic",
+  "synergy", "paradigm", "transform", "facilitate", "enhance", "drive",
+  "solutions", "navigate", "journey", "elevate", "keen", "extensive",
+  "furthermore", "coupled with", "well-suited", "strongly aligns",
+  "excited by the prospect", "esteemed", "progressive", "versatility",
+];
+
+function validateResume(text: string): ValidationResult {
+  const passed: string[] = [];
+  const warnings: string[] = [];
+
+  const foundBanned = BANNED_WORDS.filter((word) =>
+    text.toLowerCase().includes(word.toLowerCase())
+  );
+  if (foundBanned.length === 0) {
+    passed.push("No banned words detected");
+  } else {
+    warnings.push(`Banned words found: ${foundBanned.join(", ")}`);
+  }
+
+  const iStatements = text.match(/^I\s/gm);
+  if (!iStatements) {
+    passed.push("No first-person statements");
+  } else {
+    warnings.push(`${iStatements.length} first-person statement(s) found`);
+  }
+
+  const bullets = text.split("\n").filter((line) => line.trim().startsWith("-"));
+  const longBullets = bullets.filter((b) => b.trim().split(" ").length > 20);
+  if (longBullets.length === 0) {
+    passed.push("All bullets within 20 words");
+  } else {
+    warnings.push(`${longBullets.length} bullet(s) exceed 20 words`);
+  }
+
+  return { passed, warnings };
+}
+
+function validateCoverLetter(text: string): ValidationResult {
+  const passed: string[] = [];
+  const warnings: string[] = [];
+
+  const foundBanned = BANNED_WORDS.filter((word) =>
+    text.toLowerCase().includes(word.toLowerCase())
+  );
+  if (foundBanned.length === 0) {
+    passed.push("No banned words detected");
+  } else {
+    warnings.push(`Banned words found: ${foundBanned.join(", ")}`);
+  }
+
+  const wordCount = text.trim().split(/\s+/).length;
+  if (wordCount >= 300 && wordCount <= 350) {
+    passed.push(`Word count: ${wordCount} words (within 300-350)`);
+  } else if (wordCount < 300) {
+    warnings.push(`Word count: ${wordCount} words (too short, need 300+)`);
+  } else {
+    warnings.push(`Word count: ${wordCount} words (too long, max 350)`);
+  }
+
+  if (text.includes("Dear Hiring Manager")) {
+    passed.push("Has proper salutation");
+  } else {
+    warnings.push("Missing 'Dear Hiring Manager' salutation");
+  }
+
+  if (text.includes("Yours sincerely")) {
+    passed.push("Has proper closing");
+  } else {
+    warnings.push("Missing 'Yours sincerely' closing");
+  }
+
+  return { passed, warnings };
+}
+
 const RESOURCE_EMOJI: Record<string, string> = {
   video: "🎬",
   docs: "📄",
@@ -139,6 +221,10 @@ export default function Home() {
   } | null>(null);
   const [copiedDoc, setCopiedDoc] = useState<"resume" | "coverLetter" | null>(null);
   const [downloadingResume, setDownloadingResume] = useState(false);
+  const [validation, setValidation] = useState<{
+    resume: ValidationResult | null;
+    coverLetter: ValidationResult | null;
+  } | null>(null);
   const [employerQuestions, setEmployerQuestions] = useState("");
   const [questionAnswers, setQuestionAnswers] = useState<{ question: string; answer: string }[] | null>(null);
   const [generatingAnswers, setGeneratingAnswers] = useState(false);
@@ -197,6 +283,7 @@ export default function Home() {
     setDocuments(null);
     setGeneratingDocs(false);
     setDownloadingResume(false);
+    setValidation(null);
     setEmployerQuestions("");
     setQuestionAnswers(null);
     setGeneratingAnswers(false);
@@ -338,6 +425,10 @@ export default function Home() {
         return;
       }
       setDocuments(data);
+      setValidation({
+        resume: data.resume ? validateResume(data.resume) : null,
+        coverLetter: data.coverLetter ? validateCoverLetter(data.coverLetter) : null,
+      });
       setTimeout(() => {
         window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
       }, 150);
@@ -1129,6 +1220,22 @@ export default function Home() {
                         <pre className="text-xs text-zinc-300 bg-white/5 border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">
                           {documents.resume}
                         </pre>
+                        {/* Resume quality check */}
+                        {validation?.resume && (
+                          <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 mt-3">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
+                              Quality Check
+                            </p>
+                            <ul className="space-y-1">
+                              {validation.resume.passed.map((item, i) => (
+                                <li key={i} className="text-xs text-green-400">✓ {item}</li>
+                              ))}
+                              {validation.resume.warnings.map((item, i) => (
+                                <li key={i} className="text-xs text-amber-400">⚠ {item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         <div className="flex gap-2 mt-2">
                           <button
                             onClick={() =>
@@ -1173,6 +1280,22 @@ export default function Home() {
                         <pre className="text-xs text-zinc-300 bg-white/5 border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">
                           {documents.coverLetter}
                         </pre>
+                        {/* Cover letter quality check */}
+                        {validation?.coverLetter && (
+                          <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 mt-3">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
+                              Quality Check
+                            </p>
+                            <ul className="space-y-1">
+                              {validation.coverLetter.passed.map((item, i) => (
+                                <li key={i} className="text-xs text-green-400">✓ {item}</li>
+                              ))}
+                              {validation.coverLetter.warnings.map((item, i) => (
+                                <li key={i} className="text-xs text-amber-400">⚠ {item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         <div className="flex gap-2 mt-2">
                           <button
                             onClick={() =>

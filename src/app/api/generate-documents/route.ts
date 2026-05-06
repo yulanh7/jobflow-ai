@@ -41,58 +41,102 @@ export async function POST(req: NextRequest) {
     });
 
     const prompt = `
-      # Role
-      You are an expert technical resume writer and career coach specialising in the Australian technology job market, particularly Canberra.
+# Role
+You are an expert technical resume writer specialising in the Australian
+technology job market, particularly Canberra government and private sector roles.
 
-      # Candidate Profile
-      ${resumeText}
+# Candidate Profile
+${resumeText}
 
-      # Target Job Description
-      ${jobDescription}
+# Target Job Description
+${jobDescription}
 
-      ${extraContext ? `# Extra Context from Candidate\n${extraContext}` : ""}
+${extraContext ? `# Extra Context from Candidate\n${extraContext}` : ""}
 
-      # Task
-      ${generateResume ? "Generate a tailored one-page resume." : ""}
-      ${generateCoverLetter ? "Generate a tailored cover letter." : ""}
+# Task
+${generateResume ? "Generate a tailored one-page resume." : ""}
+${generateCoverLetter ? "Generate a tailored cover letter." : ""}
 
-      # Resume Rules (apply strictly if generating resume)
-      1. One page maximum
-      2. Bullet point format for work experience
-      3. Implicit first person — "Built X" not "I built X"
-      4. Each bullet 10-15 words, maximum 20 words
-      5. Simple action verbs only: built, created, developed, wrote, designed, launched, integrated, deployed, reduced, improved, helped, made, fixed, implemented, added, updated, managed, led, coordinated
-      6. NEVER use these words: ensure, crucial, vital, leverage, seamless, seamlessly, comprehensive, robust, innovative, cutting-edge, dynamic, synergy, paradigm, transform, facilitate, enhance, drive, deliver, solutions, navigate, journey, elevate, optimize, keen, extensive, versatility, progressive, esteemed, excited by the prospect, strongly aligns, well-suited, coupled with, furthermore, intricate
-      7. Tailor bullets to match JD requirements
-      8. Include only defendable numbers from the original resume
-      9. Keep all real job titles and dates accurate
+${generateResume ? `
+# Resume Rules (follow every rule strictly)
 
-      # Cover Letter Rules (apply strictly if generating cover letter)
-      1. 300-350 words maximum, never exceed 400
-      2. Prose paragraphs, no bullet points
-      3. Structure:
-         - Opening (2-3 sentences): Role name + core skill match
-         - Body 1 (5-6 sentences): 1-2 strongest relevant projects with specific details
-         - Body 2 (3-4 sentences): Why this specific company, extract from JD
-         - Gap explanation (2-3 sentences): Mention community platform project, ready to return
-         - Closing (2 sentences): Ready to contribute, call to action
-      4. Use "you/your" to address hiring manager
-      5. Same banned words as resume
-      6. Evidence-based: reference actual projects from resume
-      7. Opening example format: "I'm applying for the [Role] at [Company]. I have [X]+ years building [relevant tech]. I'm [location]-based with valid work rights."
-      8. Always start with: "Dear Hiring Manager,"
-      9. Always end with: "Yours sincerely,\n\nRachel Huang"
-      10. Leave one blank line after "Dear Hiring Manager," before the first paragraph
-      11. Leave one blank line before "Yours sincerely,"
+## Structure (in this exact order)
+1. Name — centred, bold
+2. Contact line — email · phone · linkedin · github, centred
+3. Summary — 2-3 sentences, tailored to this JD
+4. Skills — one line, technologies relevant to JD listed first
+5. Experience — reverse chronological, each role has:
+   - Job title (bold) | Company · Location | Date range
+   - 3-5 bullet points
+6. Education
 
-      # Output Format
-      Respond ONLY with valid JSON, no markdown:
-      {
-        "resume": "full resume text with \\n for line breaks, null if not requested",
-        "coverLetter": "full cover letter text with \\n for line breaks, null if not requested"
-      }
+## Writing Rules
+- Implicit first person: "Built X" not "I built X"
+- Each bullet 10-15 words, hard maximum 20 words
+- Start each bullet with a simple action verb:
+  built, created, developed, wrote, designed, launched, integrated,
+  deployed, reduced, improved, fixed, implemented, added, updated,
+  managed, led, coordinated, migrated, delivered
+- Tailor bullets to match JD keywords naturally
+- Only use numbers that appear in the original resume — never invent metrics
+- Keep all original job titles, company names, and dates unchanged
 
-    `;
+## Banned Words (NEVER use any of these)
+ensure, crucial, vital, leverage, seamless, seamlessly, comprehensive,
+robust, innovative, cutting-edge, dynamic, synergy, paradigm, transform,
+facilitate, enhance, drive, deliver, solutions, navigate, journey,
+elevate, optimize, keen, extensive, versatility, progressive, esteemed,
+excited by the prospect, strongly aligns, well-suited, coupled with,
+furthermore, intricate, spearheaded, adept, proficient in
+` : ""}
+${generateCoverLetter ? `
+# Cover Letter Rules (follow every rule strictly)
+
+## Format
+- Start with: "Dear Hiring Manager,"
+- Blank line after salutation
+- 4 paragraphs (no bullet points)
+- Blank line before closing
+- End with: "Yours sincerely,\n\nRachel Huang"
+- MUST be 300-350 words — count carefully, do not submit outside this range
+
+## Structure
+Paragraph 1 — Opening (2-3 sentences):
+"I'm applying for the [exact role title] at [company name from JD].
+I have [X]+ years building [most relevant tech from JD].
+I'm Canberra-based with valid Australian work rights."
+
+Paragraph 2 — Strongest evidence (5-6 sentences):
+Pick 1-2 projects from the resume that best match this JD.
+Give specific details: tech used, scale, what you built, outcome.
+Reference actual numbers from the resume only.
+
+Paragraph 3 — Why this company (3-4 sentences):
+Extract what makes this role/company specific from the JD.
+Show genuine alignment — not generic enthusiasm.
+If JD mentions government, national systems, or specific domain — reference it.
+
+Paragraph 4 — Gap + closing (4-5 sentences):
+If there is an employment gap in the resume, explain in 2 sentences:
+"Since [last role end date], I built a community platform using Next.js,
+Redux Toolkit, and TypeScript. I'm ready to return to full-time work."
+If no gap, skip this and go straight to closing.
+Closing: express readiness to contribute, invite next step.
+
+## Same Banned Words as Resume
+ensure, crucial, vital, leverage, seamless, seamlessly, comprehensive,
+robust, innovative, cutting-edge, dynamic, synergy, facilitate, enhance,
+keen, extensive, strongly aligns, well-suited, coupled with, furthermore,
+spearheaded, adept, proficient in, excited by the prospect, esteemed
+` : ""}
+
+# Output
+Return ONLY valid JSON — no markdown, no explanation:
+{
+  "resume": ${generateResume ? '"full resume as plain text, use \\n for line breaks"' : "null"},
+  "coverLetter": ${generateCoverLetter ? '"full cover letter as plain text, use \\n for line breaks"' : "null"}
+}
+`;
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();

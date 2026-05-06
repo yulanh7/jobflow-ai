@@ -1,6 +1,4 @@
-// src/app/api/parse-resume/route.ts
 // Handles resume file uploads and extracts plain text from PDF and DOCX formats
-
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 
