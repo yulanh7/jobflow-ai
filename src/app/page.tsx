@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+import { saveAs } from "file-saver";
 import { AmbientGlow } from "@/components/visual/AmbientGlow";
 import { CustomCursor } from "@/components/visual/CustomCursor";
 import { GlassConsole } from "@/components/ui/GlassConsole";
@@ -126,6 +128,15 @@ export default function Home() {
   const [copiedBullet, setCopiedBullet] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
   const [expandedPlans, setExpandedPlans] = useState<string[]>([]);
+  const [extraContext, setExtraContext] = useState("");
+  const [generateResume, setGenerateResume] = useState(true);
+  const [generateCoverLetter, setGenerateCoverLetter] = useState(true);
+  const [generatingDocs, setGeneratingDocs] = useState(false);
+  const [documents, setDocuments] = useState<{
+    resume: string | null;
+    coverLetter: string | null;
+  } | null>(null);
+  const [copiedDoc, setCopiedDoc] = useState<"resume" | "coverLetter" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle file selection and trigger resume parsing API
@@ -173,6 +184,11 @@ export default function Home() {
     setLearningPlan(null);
     setGeneratingPlan(false);
     setExpandedPlans([]);
+    setExtraContext("");
+    setGenerateResume(true);
+    setGenerateCoverLetter(true);
+    setDocuments(null);
+    setGeneratingDocs(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -287,6 +303,85 @@ export default function Home() {
     await navigator.clipboard.writeText(prompt);
     setCopiedPrompt(key);
     setTimeout(() => setCopiedPrompt(null), 2000);
+  };
+
+  // Call the document generation API with selected options
+  const handleGenerateDocs = async () => {
+    if (!generateResume && !generateCoverLetter) return;
+    setGeneratingDocs(true);
+    try {
+      const res = await fetch("/api/generate-documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeText,
+          jobDescription,
+          extraContext,
+          generateResume,
+          generateCoverLetter,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to generate documents. Please try again.");
+        return;
+      }
+      setDocuments(data);
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      }, 150);
+    } catch (err) {
+      console.error("Document generation failed:", err);
+      alert("Check your internet connection and try again.");
+    } finally {
+      setGeneratingDocs(false);
+    }
+  };
+
+  // Copy a generated document to clipboard
+  const handleCopyDoc = async (text: string, key: "resume" | "coverLetter") => {
+    await navigator.clipboard.writeText(text);
+    setCopiedDoc(key);
+    setTimeout(() => setCopiedDoc(null), 2000);
+  };
+
+  // Download the tailored resume as a .docx file
+  const handleDownloadResume = async () => {
+    if (!documents?.resume) return;
+
+    const paragraphs = documents.resume.split("\n").map((line: string) => {
+      if (line.trim() === "") return new Paragraph({ text: "" });
+      return new Paragraph({
+        children: [new TextRun({ text: line, size: 22, font: "Calibri" })],
+      });
+    });
+
+    const doc = new Document({
+      sections: [{ properties: {}, children: paragraphs }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, "resume-tailored.docx");
+  };
+
+  // Download the cover letter as a .docx file
+  const handleDownloadCoverLetter = async () => {
+    if (!documents?.coverLetter) return;
+
+    const paragraphs = documents.coverLetter.split("\n").map((line: string) => {
+      if (line.trim() === "") return new Paragraph({ text: "" });
+      return new Paragraph({
+        children: [new TextRun({ text: line, size: 24, font: "Calibri" })],
+        spacing: { after: 200 },
+      });
+    });
+
+    const doc = new Document({
+      sections: [{ properties: {}, children: paragraphs }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, "cover-letter.docx");
   };
 
   // Toggle a plan card's expanded/collapsed state
@@ -883,6 +978,162 @@ export default function Home() {
                   )}
                 </div>
               )}
+
+              {/* Resume & Cover Letter */}
+              <div className="border-t border-white/5 pt-8 mb-8">
+                <h3 className="text-[10px] uppercase tracking-[0.2em] text-emerald-400 font-medium mb-4">
+                  Resume &amp; Cover Letter
+                </h3>
+
+                {/* Document type checkboxes */}
+                <div className="flex flex-col gap-3 mb-4">
+                  {(
+                    [
+                      {
+                        checked: generateResume,
+                        toggle: () => setGenerateResume((v) => !v),
+                        label: "Generate tailored resume",
+                      },
+                      {
+                        checked: generateCoverLetter,
+                        toggle: () => setGenerateCoverLetter((v) => !v),
+                        label: "Generate cover letter",
+                      },
+                    ] as const
+                  ).map(({ checked, toggle, label }) => (
+                    <label
+                      key={label}
+                      className="flex items-center gap-3 cursor-pointer"
+                    >
+                      <button
+                        role="checkbox"
+                        aria-checked={checked}
+                        onClick={toggle}
+                        className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                          checked
+                            ? "bg-indigo-600 border-indigo-500"
+                            : "bg-transparent border-white/20 hover:border-white/40"
+                        }`}
+                      >
+                        {checked && (
+                          <Check size={10} className="text-white" strokeWidth={3} />
+                        )}
+                      </button>
+                      <span className="text-sm text-zinc-300">{label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Optional extra context */}
+                <textarea
+                  value={extraContext}
+                  onChange={(e) => setExtraContext(e.target.value)}
+                  placeholder="Optional: add extra context — e.g. 'I recently learned Angular' or 'I have Baseline Clearance'"
+                  className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-emerald-500/50 transition-colors mb-4"
+                />
+
+                {/* Generate button */}
+                <motion.button
+                  whileHover={{
+                    scale:
+                      !generateResume && !generateCoverLetter ? 1 : 1.01,
+                  }}
+                  whileTap={{
+                    scale:
+                      !generateResume && !generateCoverLetter ? 1 : 0.98,
+                  }}
+                  onClick={handleGenerateDocs}
+                  disabled={
+                    (!generateResume && !generateCoverLetter) || generatingDocs
+                  }
+                  className="w-full py-3 bg-emerald-600/20 border border-emerald-500/30 rounded-xl text-emerald-300 text-sm font-medium hover:bg-emerald-600/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {generatingDocs ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 size={14} className="animate-spin" />
+                      Generating...
+                    </span>
+                  ) : (
+                    "Generate Documents"
+                  )}
+                </motion.button>
+
+                {/* Generated document results */}
+                {documents && (
+                  <div className="mt-6 space-y-6">
+                    {/* Tailored resume */}
+                    {documents.resume && (
+                      <div>
+                        <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2">
+                          Tailored Resume
+                        </p>
+                        <pre className="text-xs text-zinc-300 bg-white/5 border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                          {documents.resume}
+                        </pre>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() =>
+                              handleCopyDoc(documents.resume!, "resume")
+                            }
+                            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                          >
+                            {copiedDoc === "resume" ? (
+                              <Check size={11} className="text-green-400" />
+                            ) : (
+                              <ClipboardCopy size={11} />
+                            )}
+                            {copiedDoc === "resume" ? "Copied" : "Copy"}
+                          </button>
+                          <button
+                            onClick={handleDownloadResume}
+                            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                          >
+                            <Download size={11} />
+                            Download as .docx
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cover letter */}
+                    {documents.coverLetter && (
+                      <div>
+                        <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2">
+                          Cover Letter
+                        </p>
+                        <pre className="text-xs text-zinc-300 bg-white/5 border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                          {documents.coverLetter}
+                        </pre>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() =>
+                              handleCopyDoc(
+                                documents.coverLetter!,
+                                "coverLetter"
+                              )
+                            }
+                            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                          >
+                            {copiedDoc === "coverLetter" ? (
+                              <Check size={11} className="text-green-400" />
+                            ) : (
+                              <ClipboardCopy size={11} />
+                            )}
+                            {copiedDoc === "coverLetter" ? "Copied" : "Copy"}
+                          </button>
+                          <button
+                            onClick={handleDownloadCoverLetter}
+                            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                          >
+                            <Download size={11} />
+                            Download as .docx
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Run again button */}
               <motion.button
