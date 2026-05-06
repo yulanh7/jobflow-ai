@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: NextRequest) {
   try {
-    const { resumeText, jobDescription, extraContext, generateResume, generateCoverLetter } =
+    const { resumeText, jobDescription, extraContext, generateResume, generateCoverLetter, confirmedQualifications } =
       await req.json();
 
     if (!resumeText || !jobDescription) {
@@ -56,6 +56,13 @@ ${extraContext ? `# Extra Context from Candidate\n${extraContext}` : ""}
 # Task
 ${generateResume ? "Generate a tailored one-page resume." : ""}
 ${generateCoverLetter ? "Generate a tailored cover letter." : ""}
+
+${confirmedQualifications?.length > 0 ? `
+# Confirmed Qualifications (candidate confirmed they hold these)
+${confirmedQualifications.join(", ")}
+- Add to Skills section of resume
+- Mention in cover letter: "I hold [qualification]"
+` : ""}
 
 ${generateResume ? `
 # Resume Rules (follow every rule strictly)

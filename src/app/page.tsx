@@ -183,6 +183,15 @@ const skillGapCard: Variants = {
 };
 
 // Returns a colour class based on the alignment score
+function isQualificationGap(text: string): boolean {
+  const keywords = [
+    "clearance", "citizenship", "security clearance",
+    "permanent resident", "working rights", "police check",
+    "nv1", "nv2", "baseline clearance",
+  ];
+  return keywords.some((k) => text.toLowerCase().includes(k));
+}
+
 function cleanMarkdown(text: string): string {
   return text
     .replace(/\*\*(.*?)\*\*/g, "$1")
@@ -233,6 +242,7 @@ export default function Home() {
   } | null>(null);
   const [copiedDoc, setCopiedDoc] = useState<"resume" | "coverLetter" | null>(null);
   const [downloadingResume, setDownloadingResume] = useState(false);
+  const [confirmedQualifications, setConfirmedQualifications] = useState<string[]>([]);
   const [validation, setValidation] = useState<{
     resume: ValidationResult | null;
     coverLetter: ValidationResult | null;
@@ -295,6 +305,7 @@ export default function Home() {
     setDocuments(null);
     setGeneratingDocs(false);
     setDownloadingResume(false);
+    setConfirmedQualifications([]);
     setValidation(null);
     setEmployerQuestions("");
     setQuestionAnswers(null);
@@ -429,6 +440,7 @@ export default function Home() {
           extraContext,
           generateResume,
           generateCoverLetter,
+          confirmedQualifications,
         }),
       });
       const data = await res.json();
@@ -792,16 +804,47 @@ export default function Home() {
                     animate="visible"
                     className="space-y-3"
                   >
-                    {analysis.gaps?.map((item, i) => (
-                      <motion.li
-                        key={i}
-                        variants={listItem}
-                        className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
-                      >
-                        <span className="text-red-500 shrink-0 mt-0.5">−</span>
-                        {item}
-                      </motion.li>
-                    ))}
+                    {analysis.gaps?.map((item, i) =>
+                      isQualificationGap(item) ? (
+                        <motion.li key={i} variants={listItem} className="flex items-start gap-3">
+                          <button
+                            role="checkbox"
+                            aria-checked={confirmedQualifications.includes(item)}
+                            onClick={() =>
+                              setConfirmedQualifications((prev) =>
+                                prev.includes(item)
+                                  ? prev.filter((q) => q !== item)
+                                  : [...prev, item]
+                              )
+                            }
+                            className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                              confirmedQualifications.includes(item)
+                                ? "bg-indigo-600 border-indigo-500"
+                                : "bg-transparent border-white/20 hover:border-white/40"
+                            }`}
+                          >
+                            {confirmedQualifications.includes(item) && (
+                              <Check size={10} className="text-white" strokeWidth={3} />
+                            )}
+                          </button>
+                          <div>
+                            <span className="text-sm text-zinc-300">{item}</span>
+                            <p className="text-[10px] text-zinc-500 mt-0.5">
+                              Tick if you have this — it will be added to your documents
+                            </p>
+                          </div>
+                        </motion.li>
+                      ) : (
+                        <motion.li
+                          key={i}
+                          variants={listItem}
+                          className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
+                        >
+                          <span className="text-red-500 shrink-0 mt-0.5">−</span>
+                          {item}
+                        </motion.li>
+                      )
+                    )}
                   </motion.ul>
                 </div>
               </div>
@@ -850,7 +893,7 @@ export default function Home() {
               </div>
 
               {/* Skill Gap Learning Plan */}
-              {analysis.skillGaps && analysis.skillGaps.length > 0 && (
+              {(analysis.skillGaps?.filter((g) => !isQualificationGap(g.skill)).length ?? 0) > 0 && (
                 <div className="border-t border-white/5 pt-8 mb-8">
                   <h3 className="text-[10px] uppercase tracking-[0.2em] text-amber-400 font-medium mb-1">
                     Skill Gap Learning Plan
@@ -865,7 +908,7 @@ export default function Home() {
                     animate="visible"
                     className="divide-y divide-white/5"
                   >
-                    {analysis.skillGaps.map((gap, i) => {
+                    {analysis.skillGaps!.filter((g) => !isQualificationGap(g.skill)).map((gap, i) => {
                       const checked = selectedGaps.includes(gap.skill);
                       return (
                         <motion.li

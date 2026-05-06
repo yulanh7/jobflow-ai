@@ -181,6 +181,23 @@ const skillGapCard: Variants = {
   visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: "easeOut" } },
 };
 
+function isQualificationGap(text: string): boolean {
+  const keywords = [
+    "clearance", "citizenship", "security clearance",
+    "permanent resident", "working rights", "police check",
+    "nv1", "nv2", "baseline clearance",
+  ];
+  return keywords.some((k) => text.toLowerCase().includes(k));
+}
+
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/_(.*?)_/g, "$1")
+}
+
 function getScoreColor(score: number): string {
   if (score >= 80) return "text-emerald-400";
   if (score >= 60) return "text-indigo-400";
@@ -305,6 +322,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   } | null>(null);
   const [copiedDoc, setCopiedDoc] = useState<"resume" | "coverLetter" | null>(null);
   const [downloadingResume, setDownloadingResume] = useState(false);
+  const [confirmedQualifications, setConfirmedQualifications] = useState<string[]>([]);
   const [validation, setValidation] = useState<{
     resume: ValidationResult | null;
     coverLetter: ValidationResult | null;
@@ -312,6 +330,19 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   const [employerQuestions, setEmployerQuestions] = useState("");
   const [questionAnswers, setQuestionAnswers] = useState<{ question: string; answer: string }[] | null>(null);
   const [generatingAnswers, setGeneratingAnswers] = useState(false);
+  const [rewritingDocs, setRewritingDocs] = useState(false);
+  const [rewrittenDocs, setRewrittenDocs] = useState<{
+    resume: string | null;
+    coverLetter: string | null;
+  } | null>(null);
+  const [rewriteValidation, setRewriteValidation] = useState<{
+    resume: ValidationResult | null;
+    coverLetter: ValidationResult | null;
+  } | null>(null);
+  const [rewriteResume, setRewriteResume] = useState(true);
+  const [rewriteCoverLetter, setRewriteCoverLetter] = useState(true);
+  const [copiedRewrite, setCopiedRewrite] = useState<"resume" | "coverLetter" | null>(null);
+  const [downloadingRewrite, setDownloadingRewrite] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -365,10 +396,14 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     setDocuments(null);
     setGeneratingDocs(false);
     setDownloadingResume(false);
+    setConfirmedQualifications([]);
     setValidation(null);
     setEmployerQuestions("");
     setQuestionAnswers(null);
     setGeneratingAnswers(false);
+    setRewrittenDocs(null);
+    setRewriteValidation(null);
+    setRewritingDocs(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -490,6 +525,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
           extraContext,
           generateResume,
           generateCoverLetter,
+          confirmedQualifications,
         }),
       });
       const data = await res.json();
@@ -612,6 +648,101 @@ function StudioApp({ onLock }: { onLock: () => void }) {
       .map((qa) => `Q: ${qa.question}\nA: ${qa.answer}`)
       .join("\n\n");
     await navigator.clipboard.writeText(text);
+  };
+
+  // Send selected skill gaps to AI and rewrite both documents to incorporate them
+  const handleRewriteDocs = async () => {
+    if (!analysis?.skillGaps || selectedGaps.length === 0) return;
+    setRewritingDocs(true);
+    try {
+      const selectedGapDetails = analysis.skillGaps.filter((g) =>
+        selectedGaps.includes(g.skill)
+      );
+      const res = await fetch("/api/rewrite-with-skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeText, jobDescription, selectedGaps: selectedGapDetails }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to rewrite documents. Please try again.");
+        return;
+      }
+      setRewrittenDocs(data);
+      setRewriteValidation({
+        resume: data.resume ? validateResume(data.resume) : null,
+        coverLetter: data.coverLetter ? validateCoverLetter(data.coverLetter) : null,
+      });
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      }, 150);
+    } catch (err) {
+      console.error("Rewrite failed:", err);
+      alert("Check your internet connection and try again.");
+    } finally {
+      setRewritingDocs(false);
+    }
+  };
+
+  // Copy a rewritten document to clipboard
+  const handleCopyRewrite = async (text: string, key: "resume" | "coverLetter") => {
+    await navigator.clipboard.writeText(text);
+    setCopiedRewrite(key);
+    setTimeout(() => setCopiedRewrite(null), 2000);
+  };
+
+  // Download rewritten resume as formatted .docx using the original file's structure
+  const handleDownloadRewrittenResume = async () => {
+    if (!rewrittenDocs?.resume || !resumeFile) return;
+    setDownloadingRewrite(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", resumeFile);
+      formData.append("content", rewrittenDocs.resume);
+
+      const res = await fetch("/api/generate-resume-docx", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        alert("Failed to generate formatted resume. Please try again.");
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "resume-rewritten.docx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Rewritten resume download failed:", err);
+      alert("Download failed. Please try again.");
+    } finally {
+      setDownloadingRewrite(false);
+    }
+  };
+
+  // Download rewritten cover letter as .docx
+  const handleDownloadRewrittenCoverLetter = async () => {
+    if (!rewrittenDocs?.coverLetter) return;
+
+    const paragraphs = rewrittenDocs.coverLetter.split("\n").map((line: string) => {
+      if (line.trim() === "") return new Paragraph({ text: "" });
+      return new Paragraph({
+        children: [new TextRun({ text: line, size: 24, font: "Calibri" })],
+        spacing: { after: 200 },
+      });
+    });
+
+    const doc = new Document({
+      sections: [{ properties: {}, children: paragraphs }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, "cover-letter-rewritten.docx");
   };
 
   const handleCopySuggestions = async () => {
@@ -849,16 +980,47 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                       animate="visible"
                       className="space-y-3"
                     >
-                      {analysis.gaps?.map((item, i) => (
-                        <motion.li
-                          key={i}
-                          variants={listItem}
-                          className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
-                        >
-                          <span className="text-red-500 shrink-0 mt-0.5">−</span>
-                          {item}
-                        </motion.li>
-                      ))}
+                      {analysis.gaps?.map((item, i) =>
+                        isQualificationGap(item) ? (
+                          <motion.li key={i} variants={listItem} className="flex items-start gap-3">
+                            <button
+                              role="checkbox"
+                              aria-checked={confirmedQualifications.includes(item)}
+                              onClick={() =>
+                                setConfirmedQualifications((prev) =>
+                                  prev.includes(item)
+                                    ? prev.filter((q) => q !== item)
+                                    : [...prev, item]
+                                )
+                              }
+                              className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                confirmedQualifications.includes(item)
+                                  ? "bg-indigo-600 border-indigo-500"
+                                  : "bg-transparent border-white/20 hover:border-white/40"
+                              }`}
+                            >
+                              {confirmedQualifications.includes(item) && (
+                                <Check size={10} className="text-white" strokeWidth={3} />
+                              )}
+                            </button>
+                            <div>
+                              <span className="text-sm text-zinc-300">{item}</span>
+                              <p className="text-[10px] text-zinc-500 mt-0.5">
+                                Tick if you have this — it will be added to your documents
+                              </p>
+                            </div>
+                          </motion.li>
+                        ) : (
+                          <motion.li
+                            key={i}
+                            variants={listItem}
+                            className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
+                          >
+                            <span className="text-red-500 shrink-0 mt-0.5">−</span>
+                            {item}
+                          </motion.li>
+                        )
+                      )}
                     </motion.ul>
                   </div>
                 </div>
@@ -907,7 +1069,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                 </div>
 
                 {/* Skill Gap Learning Plan */}
-                {analysis.skillGaps && analysis.skillGaps.length > 0 && (
+                {(analysis.skillGaps?.filter((g) => !isQualificationGap(g.skill)).length ?? 0) > 0 && (
                   <div className="border-t border-white/5 pt-8 mb-8">
                     <h3 className="text-[10px] uppercase tracking-[0.2em] text-amber-400 font-medium mb-1">
                       Skill Gap Learning Plan
@@ -922,7 +1084,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                       animate="visible"
                       className="divide-y divide-white/5"
                     >
-                      {analysis.skillGaps.map((gap, i) => {
+                      {analysis.skillGaps!.filter((g) => !isQualificationGap(g.skill)).map((gap, i) => {
                         const checked = selectedGaps.includes(gap.skill);
                         return (
                           <motion.li
@@ -1151,6 +1313,181 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                           <Download size={14} />
                           Download Learning Plan
                         </motion.button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Rewrite with Selected Skills — Studio only */}
+                {analysis && selectedGaps.length > 0 && (
+                  <div className="border-t border-white/5 pt-8 mb-8">
+                    <h3 className="text-[10px] uppercase tracking-[0.2em] text-cyan-400 font-medium mb-1">
+                      Rewrite with Selected Skills
+                    </h3>
+                    <p className="text-xs text-zinc-500 mb-4">
+                      Incorporates your selected skill gaps into resume and cover letter
+                    </p>
+
+                    {/* Checkboxes */}
+                    <div className="flex flex-col gap-3 mb-4">
+                      {(
+                        [
+                          {
+                            checked: rewriteResume,
+                            toggle: () => setRewriteResume((v) => !v),
+                            label: "Rewrite resume",
+                          },
+                          {
+                            checked: rewriteCoverLetter,
+                            toggle: () => setRewriteCoverLetter((v) => !v),
+                            label: "Rewrite cover letter",
+                          },
+                        ] as const
+                      ).map(({ checked, toggle, label }) => (
+                        <label key={label} className="flex items-center gap-3 cursor-pointer">
+                          <button
+                            role="checkbox"
+                            aria-checked={checked}
+                            onClick={toggle}
+                            className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                              checked
+                                ? "bg-indigo-600 border-indigo-500"
+                                : "bg-transparent border-white/20 hover:border-white/40"
+                            }`}
+                          >
+                            {checked && (
+                              <Check size={10} className="text-white" strokeWidth={3} />
+                            )}
+                          </button>
+                          <span className="text-sm text-zinc-300">{label}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    {/* Rewrite button */}
+                    <motion.button
+                      whileHover={{ scale: (!rewriteResume && !rewriteCoverLetter) ? 1 : 1.01 }}
+                      whileTap={{ scale: (!rewriteResume && !rewriteCoverLetter) ? 1 : 0.98 }}
+                      onClick={handleRewriteDocs}
+                      disabled={(!rewriteResume && !rewriteCoverLetter) || rewritingDocs}
+                      className="w-full py-3 bg-cyan-600/20 border border-cyan-500/30 rounded-xl text-cyan-300 text-sm font-medium hover:bg-cyan-600/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {rewritingDocs ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 size={14} className="animate-spin" />
+                          Rewriting...
+                        </span>
+                      ) : (
+                        "Rewrite Documents"
+                      )}
+                    </motion.button>
+
+                    {/* Rewritten document results */}
+                    {rewrittenDocs && (
+                      <div className="mt-6 space-y-6">
+                        {/* Rewritten resume */}
+                        {rewrittenDocs.resume && rewriteResume && (
+                          <div>
+                            <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2">
+                              Rewritten Resume
+                            </p>
+                            <pre className="text-xs text-zinc-300 bg-white/5 border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                              {cleanMarkdown(rewrittenDocs.resume)}
+                            </pre>
+                            {rewriteValidation?.resume && (
+                              <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 mt-3">
+                                <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
+                                  Quality Check
+                                </p>
+                                <ul className="space-y-1">
+                                  {rewriteValidation.resume.passed.map((item, i) => (
+                                    <li key={i} className="text-xs text-green-400">✓ {item}</li>
+                                  ))}
+                                  {rewriteValidation.resume.warnings.map((item, i) => (
+                                    <li key={i} className="text-xs text-amber-400">⚠ {item}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => handleCopyRewrite(rewrittenDocs.resume!, "resume")}
+                                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                              >
+                                {copiedRewrite === "resume" ? (
+                                  <Check size={11} className="text-green-400" />
+                                ) : (
+                                  <ClipboardCopy size={11} />
+                                )}
+                                {copiedRewrite === "resume" ? "Copied" : "Copy"}
+                              </button>
+                              <button
+                                onClick={handleDownloadRewrittenResume}
+                                disabled={downloadingRewrite}
+                                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {downloadingRewrite ? (
+                                  <>
+                                    <Loader2 size={11} className="animate-spin" />
+                                    Generating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download size={11} />
+                                    Download as .docx
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Rewritten cover letter */}
+                        {rewrittenDocs.coverLetter && rewriteCoverLetter && (
+                          <div>
+                            <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2">
+                              Rewritten Cover Letter
+                            </p>
+                            <pre className="text-xs text-zinc-300 bg-white/5 border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                              {rewrittenDocs.coverLetter}
+                            </pre>
+                            {rewriteValidation?.coverLetter && (
+                              <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 mt-3">
+                                <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
+                                  Quality Check
+                                </p>
+                                <ul className="space-y-1">
+                                  {rewriteValidation.coverLetter.passed.map((item, i) => (
+                                    <li key={i} className="text-xs text-green-400">✓ {item}</li>
+                                  ))}
+                                  {rewriteValidation.coverLetter.warnings.map((item, i) => (
+                                    <li key={i} className="text-xs text-amber-400">⚠ {item}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => handleCopyRewrite(rewrittenDocs.coverLetter!, "coverLetter")}
+                                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                              >
+                                {copiedRewrite === "coverLetter" ? (
+                                  <Check size={11} className="text-green-400" />
+                                ) : (
+                                  <ClipboardCopy size={11} />
+                                )}
+                                {copiedRewrite === "coverLetter" ? "Copied" : "Copy"}
+                              </button>
+                              <button
+                                onClick={handleDownloadRewrittenCoverLetter}
+                                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                              >
+                                <Download size={11} />
+                                Download as .docx
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
