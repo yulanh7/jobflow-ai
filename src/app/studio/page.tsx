@@ -323,6 +323,8 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   const [copiedDoc, setCopiedDoc] = useState<"resume" | "coverLetter" | null>(null);
   const [downloadingResume, setDownloadingResume] = useState(false);
   const [confirmedQualifications, setConfirmedQualifications] = useState<string[]>([]);
+  const [feedback, setFeedback] = useState("");
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [validation, setValidation] = useState<{
     resume: ValidationResult | null;
     coverLetter: ValidationResult | null;
@@ -397,6 +399,8 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     setGeneratingDocs(false);
     setDownloadingResume(false);
     setConfirmedQualifications([]);
+    setFeedback("");
+    setIsRegenerating(false);
     setValidation(null);
     setEmployerQuestions("");
     setQuestionAnswers(null);
@@ -743,6 +747,45 @@ function StudioApp({ onLock }: { onLock: () => void }) {
 
     const blob = await Packer.toBlob(doc);
     saveAs(blob, "cover-letter-rewritten.docx");
+  };
+
+  // Regenerate documents incorporating user feedback on the previous version
+  const handleRegenerate = async () => {
+    if (!feedback || isRegenerating) return;
+    setIsRegenerating(true);
+    try {
+      const res = await fetch("/api/generate-documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeText,
+          jobDescription,
+          extraContext,
+          generateResume: !!documents?.resume,
+          generateCoverLetter: !!documents?.coverLetter,
+          confirmedQualifications,
+          feedback,
+          previousResume: documents?.resume,
+          previousCoverLetter: documents?.coverLetter,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to regenerate. Please try again.");
+        return;
+      }
+      setDocuments(data);
+      setFeedback("");
+      setValidation({
+        resume: data.resume ? validateResume(data.resume) : null,
+        coverLetter: data.coverLetter ? validateCoverLetter(data.coverLetter) : null,
+      });
+    } catch (err) {
+      console.error("Regeneration failed:", err);
+      alert("Check your connection and try again.");
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   const handleCopySuggestions = async () => {
@@ -1559,6 +1602,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                   </motion.button>
 
                   {documents && (
+                    <>
                     <div className="mt-6 space-y-6">
                       {documents.resume && (
                         <div>
@@ -1662,6 +1706,34 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                         </div>
                       )}
                     </div>
+
+                    {/* Feedback for regeneration */}
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-wider mt-6 mb-2">
+                      Not happy with the result?
+                    </p>
+                    <textarea
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      placeholder="e.g. Make the summary shorter, add more emphasis on React experience, remove the WordPress mention"
+                      className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-white/20 transition-colors mb-3"
+                    />
+                    <motion.button
+                      whileHover={{ scale: feedback.trim() ? 1.01 : 1 }}
+                      whileTap={{ scale: feedback.trim() ? 0.98 : 1 }}
+                      onClick={handleRegenerate}
+                      disabled={!feedback.trim() || isRegenerating}
+                      className="w-full py-3 flex items-center justify-center gap-2 bg-white/5 border border-white/10 rounded-xl text-zinc-400 text-sm hover:bg-white/10 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {isRegenerating ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Regenerating...
+                        </>
+                      ) : (
+                        "Regenerate with Feedback"
+                      )}
+                    </motion.button>
+                    </>
                   )}
                 </div>
 

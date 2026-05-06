@@ -7,8 +7,17 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: NextRequest) {
   try {
-    const { resumeText, jobDescription, extraContext, generateResume, generateCoverLetter, confirmedQualifications } =
-      await req.json();
+    const {
+      resumeText,
+      jobDescription,
+      extraContext,
+      generateResume,
+      generateCoverLetter,
+      confirmedQualifications,
+      feedback,
+      previousResume,
+      previousCoverLetter,
+    } = await req.json();
 
     if (!resumeText || !jobDescription) {
       return NextResponse.json(
@@ -53,6 +62,19 @@ ${jobDescription}
 
 ${extraContext ? `# Extra Context from Candidate\n${extraContext}` : ""}
 
+${feedback && previousResume ? `
+# User Feedback on Previous Version
+${feedback}
+
+# Previous Resume (revise this based on feedback above)
+${previousResume}
+
+${previousCoverLetter ? `# Previous Cover Letter (revise this based on feedback above)
+${previousCoverLetter}` : ""}
+
+IMPORTANT: Keep everything that was good, only change what the feedback requests.
+` : ""}
+
 # Task
 ${generateResume ? "Generate a tailored one-page resume." : ""}
 ${generateCoverLetter ? "Generate a tailored cover letter." : ""}
@@ -95,7 +117,8 @@ robust, innovative, cutting-edge, dynamic, synergy, paradigm, transform,
 facilitate, enhance, drive, deliver, solutions, navigate, journey,
 elevate, optimize, keen, extensive, versatility, progressive, esteemed,
 excited by the prospect, strongly aligns, well-suited, coupled with,
-furthermore, intricate, spearheaded, adept, proficient in
+furthermore, intricate, spearheaded, adept, proficient in,
+solid foundation, strong foundation, specializing
 ` : ""}
 ${generateCoverLetter ? `
 # Cover Letter Rules (follow every rule strictly)
@@ -135,8 +158,18 @@ Closing: express readiness to contribute, invite next step.
 ensure, crucial, vital, leverage, seamless, seamlessly, comprehensive,
 robust, innovative, cutting-edge, dynamic, synergy, facilitate, enhance,
 keen, extensive, strongly aligns, well-suited, coupled with, furthermore,
-spearheaded, adept, proficient in, excited by the prospect, esteemed
+spearheaded, adept, proficient in, excited by the prospect, esteemed,
+solid foundation, strong foundation, specializing
+
+CRITICAL: Before finalising, count every word in your cover letter.
+Target is exactly 300-350 words.
+If under 300: expand paragraph 2 with more project specifics.
+If over 350: remove filler phrases and adjectives.
+Do a final word count check before outputting.
 ` : ""}
+
+# Final Checks (do these before responding)
+Do a final scan for banned words. If you find any, replace with a simpler alternative.
 
 # Output
 Return ONLY valid JSON — no markdown, no explanation:
