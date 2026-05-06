@@ -43,13 +43,30 @@ export async function POST(req: NextRequest) {
       JOB DESCRIPTION: ${jobDescription}
 
       # Expected Output Format
+      You MUST include the skillGaps array in your response. This is required. Do not omit it even if there are no gaps.
+
       {
         "score": 0-100,
         "summary": "2-3 sentence overview",
         "strengths": ["Specific skill match 1", "Specific skill match 2"],
         "gaps": ["Missing mandatory skill 1"],
-        "suggestions": ["Actionable advice referencing specific resume content"]
+        "suggestions": ["Actionable advice referencing specific resume content"],
+        "skillGaps": [
+          {
+            "skill": "Angular",
+            "reason": "Explicitly required in JD but not found in resume",
+            "learnable": true,
+            "timeEstimate": "24-48 hours"
+          }
+        ]
       }
+
+      # skillGaps Rules
+      - Only include skills explicitly required by the JD that are absent from the resume.
+      - Maximum 5 entries, ordered by impact on the hiring decision.
+      - Set learnable: false only for certifications or security clearances that cannot be self-studied (e.g. Baseline Clearance, NV1).
+      - timeEstimate must be realistic — do not underestimate. Use "Requires formal application" for non-learnable items.
+      - If no skill gaps exist, return an empty array [] — never omit the skillGaps field.
     `;
 
     const result = await model.generateContent(prompt);
