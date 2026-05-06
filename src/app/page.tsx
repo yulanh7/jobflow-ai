@@ -183,6 +183,14 @@ const skillGapCard: Variants = {
 };
 
 // Returns a colour class based on the alignment score
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/_(.*?)_/g, "$1")
+}
+
 function getScoreColor(score: number): string {
   if (score >= 80) return "text-emerald-400";
   if (score >= 60) return "text-indigo-400";
@@ -1232,7 +1240,7 @@ export default function Home() {
                           Tailored Resume
                         </p>
                         <pre className="text-xs text-zinc-300 bg-white/5 border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                          {documents.resume}
+                          {cleanMarkdown(documents.resume)}
                         </pre>
                         {/* Resume quality check */}
                         {validation?.resume && (

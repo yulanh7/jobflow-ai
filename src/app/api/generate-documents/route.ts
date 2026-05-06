@@ -80,6 +80,7 @@ ${generateResume ? `
 - Tailor bullets to match JD keywords naturally
 - Only use numbers that appear in the original resume — never invent metrics
 - Keep all original job titles, company names, and dates unchanged
+- Output plain text only — no markdown formatting, no asterisks, no bold markers, no hashtags
 
 ## Banned Words (NEVER use any of these)
 ensure, crucial, vital, leverage, seamless, seamlessly, comprehensive,
