@@ -15,6 +15,13 @@ import {
   RotateCcw,
 } from "lucide-react";
 
+interface SkillGap {
+  skill: string;
+  reason: string;
+  learnable: boolean;
+  timeEstimate: string;
+}
+
 // Shape of the AI analysis response
 interface AnalysisResult {
   score: number;
@@ -22,6 +29,7 @@ interface AnalysisResult {
   strengths: string[];
   gaps: string[];
   suggestions: string[];
+  skillGaps?: SkillGap[];
 }
 
 // Stagger container — siblings animate one after another
@@ -35,9 +43,19 @@ const staggerListLate: Variants = {
   visible: { transition: { staggerChildren: 0.07, delayChildren: 0.55 } },
 };
 
+const staggerListVeryLate: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.7 } },
+};
+
 const listItem: Variants = {
   hidden: { opacity: 0, x: -8 },
   visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
+};
+
+const skillGapCard: Variants = {
+  hidden: { opacity: 0, y: 10, scale: 0.98 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: "easeOut" } },
 };
 
 // Returns a colour class based on the alignment score
@@ -66,6 +84,7 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [selectedGaps, setSelectedGaps] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle file selection and trigger resume parsing API
@@ -109,6 +128,7 @@ export default function Home() {
     setResumeText("");
     setJobDescription("");
     setAnalysis(null);
+    setSelectedGaps([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -144,6 +164,13 @@ export default function Home() {
     } finally {
       setAnalyzing(false);
     }
+  };
+
+  // Toggle a skill gap in/out of the selected learning plan
+  const toggleGap = (skill: string) => {
+    setSelectedGaps((prev) =>
+      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
+    );
   };
 
   // Copy all suggestions to clipboard
@@ -393,7 +420,7 @@ export default function Home() {
               </div>
 
               {/* Suggestions */}
-              <div>
+              <div className="mb-8 pb-8">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-[10px] uppercase tracking-[0.2em] text-indigo-400 font-medium">
                     Suggestions
@@ -434,6 +461,83 @@ export default function Home() {
                   ))}
                 </motion.ul>
               </div>
+
+              {/* Skill Gap Learning Plan */}
+              {analysis.skillGaps && analysis.skillGaps.length > 0 && (
+                <div className="border-t border-white/5 pt-8 mb-8">
+                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-amber-400 font-medium mb-1">
+                    Skill Gap Learning Plan
+                  </h3>
+                  <p className="text-xs text-zinc-500 mb-4">
+                    Select the skills you want to learn — get a personalised study plan
+                  </p>
+
+                  <motion.ul
+                    variants={staggerListVeryLate}
+                    initial="hidden"
+                    animate="visible"
+                    className="divide-y divide-white/5"
+                  >
+                    {analysis.skillGaps.map((gap, i) => {
+                      const checked = selectedGaps.includes(gap.skill);
+                      return (
+                        <motion.li
+                          key={i}
+                          variants={skillGapCard}
+                          className="flex items-start gap-3 py-3"
+                        >
+                          {/* Custom checkbox */}
+                          <button
+                            role="checkbox"
+                            aria-checked={checked}
+                            onClick={() => toggleGap(gap.skill)}
+                            className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                              checked
+                                ? "bg-indigo-600 border-indigo-500"
+                                : "bg-transparent border-white/20 hover:border-white/40"
+                            }`}
+                          >
+                            {checked && (
+                              <Check size={10} className="text-white" strokeWidth={3} />
+                            )}
+                          </button>
+
+                          {/* Row content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center flex-wrap gap-2 mb-1">
+                              <span className="text-sm text-zinc-200 font-medium">
+                                {gap.skill}
+                              </span>
+                              <span className="text-xs text-amber-400/70">
+                                {gap.timeEstimate}
+                              </span>
+                              {!gap.learnable && (
+                                <span className="text-[10px] text-red-400 border border-red-400/30 rounded px-1.5 py-0.5">
+                                  Cannot self-learn
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-zinc-600 leading-relaxed">
+                              {gap.reason}
+                            </p>
+                          </div>
+                        </motion.li>
+                      );
+                    })}
+                  </motion.ul>
+
+                  {/* Generate button */}
+                  <motion.button
+                    whileHover={{ scale: selectedGaps.length > 0 ? 1.01 : 1 }}
+                    whileTap={{ scale: selectedGaps.length > 0 ? 0.98 : 1 }}
+                    onClick={() => console.log("Selected gaps:", selectedGaps)}
+                    disabled={selectedGaps.length === 0}
+                    className="mt-4 w-full py-3 bg-amber-600/20 border border-amber-500/30 rounded-xl text-amber-300 text-sm font-medium hover:bg-amber-600/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Generate Learning Plan
+                  </motion.button>
+                </div>
+              )}
 
               {/* Run again button */}
               <motion.button
