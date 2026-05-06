@@ -55,8 +55,19 @@ export async function POST(req: NextRequest) {
           {
             "skill": "Angular",
             "reason": "Explicitly required in JD but not found in resume",
-            "learnable": true,
-            "timeEstimate": "24-48 hours"
+            "category": "quick_win",
+            "timeEstimate": "24-48 hours",
+            "interviewTip": "Mention React experience and explain Angular shares similar component concepts — show willingness to ramp up quickly",
+            "quickWinPlan": "Complete the official Angular Tour of Heroes tutorial, then build a small CRUD app. Enough to discuss confidently in interview."
+          },
+          {
+            "skill": "NV1 Security Clearance",
+            "reason": "Required by JD but not held",
+            "category": "long_term",
+            "timeEstimate": "3-6 months (application dependent)",
+            "interviewTip": "State you do not currently hold NV1 but are willing to apply — mention any prior government exposure or clean background that supports eligibility",
+            "longTermPartA": "Cannot fast-track a clearance — for interview, be transparent about status and express willingness to initiate the process",
+            "longTermPartB": "Applying requires employer sponsorship. Evaluate whether this role is worth pursuing without clearance — some employers hire and sponsor in parallel."
           }
         ]
       }
@@ -64,9 +75,23 @@ export async function POST(req: NextRequest) {
       # skillGaps Rules
       - Only include skills explicitly required by the JD that are absent from the resume.
       - Maximum 5 entries, ordered by impact on the hiring decision.
-      - Set learnable: false only for certifications or security clearances that cannot be self-studied (e.g. Baseline Clearance, NV1).
-      - timeEstimate must be realistic — do not underestimate. Use "Requires formal application" for non-learnable items.
       - If no skill gaps exist, return an empty array [] — never omit the skillGaps field.
+
+      # Category Definitions (assign honestly — do not over-optimise)
+      - interview_ready: Conceptual skills where understanding core concepts is enough to pass an interview question.
+        Time: 4-8 hours. Examples: specific methodologies, lightweight frameworks, tooling conventions.
+        Required fields: skill, reason, category, timeEstimate, interviewTip.
+      - quick_win: Technical skills genuinely learnable in 24-48 hours and addable to the resume.
+        Time: 24-48 hours. Examples: Python basics, a specific UI framework, a standard specification.
+        Required fields: skill, reason, category, timeEstimate, interviewTip, quickWinPlan.
+      - long_term: Complex skills or credentials requiring 1+ month of sustained effort.
+        Time: 1 month+. Examples: cybersecurity depth, security clearance applications, deep system architecture.
+        Required fields: skill, reason, category, timeEstimate, interviewTip, longTermPartA, longTermPartB.
+
+      Categorise each skill gap honestly based on realistic learning time.
+      Do not over-optimise — if a skill genuinely takes months, mark it long_term.
+      Every skill must have an interviewTip regardless of category.
+      Omit quickWinPlan for non-quick_win entries. Omit longTermPartA/longTermPartB for non-long_term entries.
     `;
 
     const result = await model.generateContent(prompt);

@@ -23,8 +23,12 @@ import {
 interface SkillGap {
   skill: string;
   reason: string;
-  learnable: boolean;
+  category: "interview_ready" | "quick_win" | "long_term";
   timeEstimate: string;
+  interviewTip: string;
+  quickWinPlan?: string;
+  longTermPartA?: string;
+  longTermPartB?: string;
 }
 
 // Shape of the AI analysis response
@@ -886,9 +890,19 @@ export default function Home() {
                               <span className="text-xs text-amber-400/70">
                                 {gap.timeEstimate}
                               </span>
-                              {!gap.learnable && (
-                                <span className="text-[10px] text-red-400 border border-red-400/30 rounded px-1.5 py-0.5">
-                                  Cannot self-learn
+                              {gap.category && (
+                                <span className={`text-[10px] border rounded px-1.5 py-0.5 ${
+                                  gap.category === "interview_ready"
+                                    ? "text-sky-400 border-sky-400/30"
+                                    : gap.category === "quick_win"
+                                    ? "text-emerald-400 border-emerald-400/30"
+                                    : "text-rose-400 border-rose-400/30"
+                                }`}>
+                                  {gap.category === "interview_ready"
+                                    ? "Interview ready"
+                                    : gap.category === "quick_win"
+                                    ? "Quick win"
+                                    : "Long term"}
                                 </span>
                               )}
                             </div>
