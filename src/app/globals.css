@@ -24,3 +24,10 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Hide native cursor on pointer-fine devices (mouse); touch devices keep default */
+@media (pointer: fine) {
+  * {
+    cursor: none !important;
+  }
+}

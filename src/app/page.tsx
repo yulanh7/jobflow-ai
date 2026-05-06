@@ -2,8 +2,9 @@
 
 import { useState, useRef } from "react";
 import { AmbientGlow } from "@/components/visual/AmbientGlow";
+import { CustomCursor } from "@/components/visual/CustomCursor";
 import { GlassConsole } from "@/components/ui/GlassConsole";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Upload,
   FileText,
@@ -23,12 +24,28 @@ interface AnalysisResult {
   suggestions: string[];
 }
 
+// Stagger container — siblings animate one after another
+const staggerList: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07, delayChildren: 0.4 } },
+};
+
+const staggerListLate: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07, delayChildren: 0.55 } },
+};
+
+const listItem: Variants = {
+  hidden: { opacity: 0, x: -8 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
+};
+
 // Returns a colour class based on the alignment score
 function getScoreColor(score: number): string {
-  if (score >= 80) return "text-green-400";
+  if (score >= 80) return "text-emerald-400";
   if (score >= 60) return "text-indigo-400";
-  if (score >= 40) return "text-yellow-400";
-  return "text-red-400";
+  if (score >= 40) return "text-amber-400";
+  return "text-rose-400";
 }
 
 // Returns a progress bar colour class based on the alignment score
@@ -115,6 +132,12 @@ export default function Home() {
       }
 
       setAnalysis(data);
+      setTimeout(() => {
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: "smooth",
+        });
+      }, 150);
     } catch (err) {
       console.error("Analysis failed:", err);
       alert("Check your internet connection and try again.");
@@ -135,6 +158,8 @@ export default function Home() {
   };
 
   return (
+    <>
+    <CustomCursor />
     <main className="relative min-h-screen flex flex-col items-center justify-start bg-black text-white overflow-x-hidden font-[family-name:var(--font-geist-sans)] py-16 px-6">
       <AmbientGlow />
 
@@ -322,13 +347,16 @@ export default function Home() {
                   <h3 className="text-[10px] uppercase tracking-[0.2em] text-green-400 mb-4 font-medium">
                     Strengths
                   </h3>
-                  <ul className="space-y-3">
+                  <motion.ul
+                    variants={staggerList}
+                    initial="hidden"
+                    animate="visible"
+                    className="space-y-3"
+                  >
                     {analysis.strengths?.map((item, i) => (
                       <motion.li
                         key={i}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.5 + i * 0.07 }}
+                        variants={listItem}
                         className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
                       >
                         <span className="text-green-500 shrink-0 mt-0.5">
@@ -337,27 +365,30 @@ export default function Home() {
                         {item}
                       </motion.li>
                     ))}
-                  </ul>
+                  </motion.ul>
                 </div>
 
                 <div>
                   <h3 className="text-[10px] uppercase tracking-[0.2em] text-red-400 mb-4 font-medium">
                     Gaps
                   </h3>
-                  <ul className="space-y-3">
+                  <motion.ul
+                    variants={staggerList}
+                    initial="hidden"
+                    animate="visible"
+                    className="space-y-3"
+                  >
                     {analysis.gaps?.map((item, i) => (
                       <motion.li
                         key={i}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.5 + i * 0.07 }}
+                        variants={listItem}
                         className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
                       >
                         <span className="text-red-500 shrink-0 mt-0.5">−</span>
                         {item}
                       </motion.li>
                     ))}
-                  </ul>
+                  </motion.ul>
                 </div>
               </div>
 
@@ -385,20 +416,23 @@ export default function Home() {
                     )}
                   </motion.button>
                 </div>
-                <ul className="space-y-3">
+                <motion.ul
+                  variants={staggerListLate}
+                  initial="hidden"
+                  animate="visible"
+                  className="space-y-3"
+                >
                   {analysis.suggestions?.map((item, i) => (
                     <motion.li
                       key={i}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.6 + i * 0.07 }}
+                      variants={listItem}
                       className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
                     >
                       <span className="text-indigo-400 shrink-0 mt-0.5">→</span>
                       {item}
                     </motion.li>
                   ))}
-                </ul>
+                </motion.ul>
               </div>
 
               {/* Run again button */}
@@ -416,5 +450,6 @@ export default function Home() {
         )}
       </AnimatePresence>
     </main>
+    </>
   );
 }

@@ -20,36 +20,36 @@ export async function POST(req: NextRequest) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const prompt = `
-# Role
-You are a senior technical recruiter specialising in the Canberra technology market.
+      # Role
+      You are a senior technical recruiter specialising in the Canberra technology market.
 
-# Task
-Evaluate the candidate's alignment with the provided Job Description.
+      # Task
+      Evaluate the candidate's alignment with the provided Job Description.
 
-# Scoring Criteria
-- 80-100: Strong match, most required skills explicitly present
-- 60-79: Good match, majority of skills present with minor gaps
-- 40-59: Moderate match, some key skills missing
-- 0-39: Weak match, significant gaps
+      # Scoring Criteria
+      - 80-100: Strong match, most required skills explicitly present
+      - 60-79: Good match, majority of skills present with minor gaps
+      - 40-59: Moderate match, some key skills missing
+      - 0-39: Weak match, significant gaps
 
-# Critical Constraints
-1. Base evaluation ONLY on explicit evidence in the RESUME text.
-2. Do not infer or assume skills that are not mentioned.
-3. Scoring must be strictly objective.
-4. Output MUST be valid JSON with no markdown formatting.
+      # Critical Constraints
+      1. Base evaluation ONLY on explicit evidence in the RESUME text.
+      2. Do not infer or assume skills that are not mentioned.
+      3. Scoring must be strictly objective.
+      4. Output MUST be valid JSON with no markdown formatting.
 
-# Input Data
-RESUME: ${resumeText}
-JOB DESCRIPTION: ${jobDescription}
+      # Input Data
+      RESUME: ${resumeText}
+      JOB DESCRIPTION: ${jobDescription}
 
-# Expected Output Format
-{
-  "score": 0-100,
-  "summary": "2-3 sentence overview",
-  "strengths": ["Specific skill match 1", "Specific skill match 2"],
-  "gaps": ["Missing mandatory skill 1"],
-  "suggestions": ["Actionable advice referencing specific resume content"]
-}
+      # Expected Output Format
+      {
+        "score": 0-100,
+        "summary": "2-3 sentence overview",
+        "strengths": ["Specific skill match 1", "Specific skill match 2"],
+        "gaps": ["Missing mandatory skill 1"],
+        "suggestions": ["Actionable advice referencing specific resume content"]
+      }
     `;
 
     const result = await model.generateContent(prompt);
