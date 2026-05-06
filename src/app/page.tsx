@@ -139,6 +139,9 @@ export default function Home() {
   } | null>(null);
   const [copiedDoc, setCopiedDoc] = useState<"resume" | "coverLetter" | null>(null);
   const [downloadingResume, setDownloadingResume] = useState(false);
+  const [employerQuestions, setEmployerQuestions] = useState("");
+  const [questionAnswers, setQuestionAnswers] = useState<{ question: string; answer: string }[] | null>(null);
+  const [generatingAnswers, setGeneratingAnswers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle file selection and trigger resume parsing API
@@ -194,6 +197,9 @@ export default function Home() {
     setDocuments(null);
     setGeneratingDocs(false);
     setDownloadingResume(false);
+    setEmployerQuestions("");
+    setQuestionAnswers(null);
+    setGeneratingAnswers(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -416,6 +422,39 @@ export default function Home() {
     await navigator.clipboard.writeText(bullet);
     setCopiedBullet(skill);
     setTimeout(() => setCopiedBullet(null), 2000);
+  };
+
+  // Send employer screening questions to AI and store structured answers
+  const handleGenerateAnswers = async () => {
+    if (!employerQuestions.trim()) return;
+    setGeneratingAnswers(true);
+    try {
+      const res = await fetch("/api/answer-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questions: employerQuestions, resumeText, jobDescription }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to generate answers. Please try again.");
+        return;
+      }
+      setQuestionAnswers(data.answers);
+    } catch (err) {
+      console.error("Answer questions failed:", err);
+      alert("Check your internet connection and try again.");
+    } finally {
+      setGeneratingAnswers(false);
+    }
+  };
+
+  // Copy all Q&A pairs to clipboard
+  const handleCopyAnswers = async () => {
+    if (!questionAnswers) return;
+    const text = questionAnswers
+      .map((qa) => `Q: ${qa.question}\nA: ${qa.answer}`)
+      .join("\n\n");
+    await navigator.clipboard.writeText(text);
   };
 
   // Copy all suggestions to clipboard
@@ -1164,6 +1203,73 @@ export default function Home() {
                   </div>
                 )}
               </div>
+
+              {/* Employer Questions */}
+              {analysis && (
+                <div className="mt-8">
+                  <div className="border-t border-white/10 pt-6 mb-4">
+                    <h3 className="text-sm font-semibold text-violet-400 mb-1 flex items-center">
+                      Employer Questions
+                      <span className="text-[10px] text-zinc-600 border border-zinc-700 rounded px-1.5 py-0.5 ml-2">
+                        Optional
+                      </span>
+                    </h3>
+                    <p className="text-xs text-zinc-500">
+                      Optional: paste screening questions from your Seek or LinkedIn application
+                    </p>
+                  </div>
+
+                  <textarea
+                    value={employerQuestions}
+                    onChange={(e) => setEmployerQuestions(e.target.value)}
+                    placeholder={`e.g. Which of the following statements best describes your right to work in Australia?\nDo you hold Australian Security Clearance?`}
+                    className="w-full h-28 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-violet-500/50 transition-colors mb-4"
+                  />
+
+                  <motion.button
+                    whileHover={{ scale: employerQuestions.trim() ? 1.01 : 1 }}
+                    whileTap={{ scale: employerQuestions.trim() ? 0.98 : 1 }}
+                    onClick={handleGenerateAnswers}
+                    disabled={!employerQuestions.trim() || generatingAnswers}
+                    className="w-full py-3 bg-violet-600/20 border border-violet-500/30 rounded-xl text-violet-300 text-sm font-medium hover:bg-violet-600/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {generatingAnswers ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 size={14} className="animate-spin" />
+                        Generating...
+                      </span>
+                    ) : (
+                      "Generate Answers"
+                    )}
+                  </motion.button>
+
+                  {/* Q&A results */}
+                  {questionAnswers && questionAnswers.length > 0 && (
+                    <div className="mt-4 bg-white/5 border border-white/10 rounded-xl p-4">
+                      <div className="space-y-0">
+                        {questionAnswers.map((qa, i) => (
+                          <div
+                            key={i}
+                            className={`py-3 ${i < questionAnswers.length - 1 ? "border-b border-white/5" : ""}`}
+                          >
+                            <p className="text-xs text-zinc-400 mb-1">{qa.question}</p>
+                            <p className="text-sm text-zinc-200 font-medium">{qa.answer}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-white/5">
+                        <button
+                          onClick={handleCopyAnswers}
+                          className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                        >
+                          <ClipboardCopy size={11} />
+                          Copy All
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Run again button */}
               <motion.button
