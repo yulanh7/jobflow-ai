@@ -81,14 +81,27 @@ For "long_term" skills:
    furthermore, coupled with, well-suited, spearheaded, adept
 
 # Cover Letter Rules
-1. 300-350 words — count carefully, do not submit outside this range
-2. Start with: "Dear Hiring Manager,"
-3. Blank line after salutation
-4. 4 paragraphs, no bullet points
-5. Blank line before closing
-6. End with: "Yours sincerely,\n\nRachel Huang"
-7. Naturally weave in the new skills without sounding forced
-8. Same banned words as resume
+1. Start with: "Dear Hiring Manager,"
+2. Blank line after salutation
+3. 4 paragraphs, no bullet points
+4. Blank line before closing
+5. End with: "Yours sincerely,\n\nRachel Huang"
+6. Naturally weave in the new skills without sounding forced
+
+CRITICAL WORD COUNT RULE:
+The cover letter MUST contain between 300-350 words.
+Count every single word before responding.
+If under 300 words: expand Body paragraph 1 with more specific
+project details, technologies used, and measurable outcomes.
+Never submit a cover letter under 300 words.
+
+BANNED WORDS — using any of these will fail the quality check.
+Do a final scan of your output before responding.
+Remove any instance of: ensure, crucial, vital, leverage, seamless,
+seamlessly, comprehensive, robust, innovative, cutting-edge, dynamic,
+synergy, facilitate, enhance, keen, extensive, strongly aligns,
+well-suited, coupled with, furthermore, spearheaded, adept,
+specializing, solid foundation, proven ability, complex applications
 
 # Output
 Return ONLY valid JSON — no markdown, no explanation:
