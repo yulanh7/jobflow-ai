@@ -1,7 +1,7 @@
 // Generates a tailored resume and/or cover letter using Gemini AI
 
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -24,7 +24,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    // JSON mode guarantees valid JSON output — no escaped-newline issues
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash-lite",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            resume: { type: SchemaType.STRING, nullable: true },
+            coverLetter: { type: SchemaType.STRING, nullable: true },
+          },
+          required: ["resume", "coverLetter"],
+        },
+      },
+    });
 
     const prompt = `
       # Role
@@ -48,7 +62,7 @@ export async function POST(req: NextRequest) {
       3. Implicit first person — "Built X" not "I built X"
       4. Each bullet 10-15 words, maximum 20 words
       5. Simple action verbs only: built, created, developed, wrote, designed, launched, integrated, deployed, reduced, improved, helped, made, fixed, implemented, added, updated, managed, led, coordinated
-      6. NEVER use these words: ensure, crucial, vital, leverage, seamless, comprehensive, robust, innovative, cutting-edge, dynamic, synergy, paradigm, transform, facilitate, enhance, drive, deliver, solutions, navigate, journey, elevate, optimize
+      6. NEVER use these words: ensure, crucial, vital, leverage, seamless, seamlessly, comprehensive, robust, innovative, cutting-edge, dynamic, synergy, paradigm, transform, facilitate, enhance, drive, deliver, solutions, navigate, journey, elevate, optimize, keen, extensive, versatility, progressive, esteemed, excited by the prospect, strongly aligns, well-suited, coupled with, furthermore, intricate
       7. Tailor bullets to match JD requirements
       8. Include only defendable numbers from the original resume
       9. Keep all real job titles and dates accurate
@@ -66,6 +80,10 @@ export async function POST(req: NextRequest) {
       5. Same banned words as resume
       6. Evidence-based: reference actual projects from resume
       7. Opening example format: "I'm applying for the [Role] at [Company]. I have [X]+ years building [relevant tech]. I'm [location]-based with valid work rights."
+      8. Always start with: "Dear Hiring Manager,"
+      9. Always end with: "Yours sincerely,\n\nRachel Huang"
+      10. Leave one blank line after "Dear Hiring Manager," before the first paragraph
+      11. Leave one blank line before "Yours sincerely,"
 
       # Output Format
       Respond ONLY with valid JSON, no markdown:
@@ -74,11 +92,6 @@ export async function POST(req: NextRequest) {
         "coverLetter": "full cover letter text with \\n for line breaks, null if not requested"
       }
 
-      CRITICAL: Your entire response must be ONLY a valid JSON object.
-      No text before or after the JSON.
-      No markdown code fences like \`\`\`json.
-      No explanations.
-      Start your response with { and end with }
     `;
 
     const result = await model.generateContent(prompt);

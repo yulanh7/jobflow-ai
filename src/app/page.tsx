@@ -114,6 +114,7 @@ function getScoreBarColor(score: number): string {
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "success">(
     "idle"
   );
@@ -137,6 +138,7 @@ export default function Home() {
     coverLetter: string | null;
   } | null>(null);
   const [copiedDoc, setCopiedDoc] = useState<"resume" | "coverLetter" | null>(null);
+  const [downloadingResume, setDownloadingResume] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle file selection and trigger resume parsing API
@@ -144,6 +146,7 @@ export default function Home() {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
+    setResumeFile(selectedFile);
     setFile(selectedFile);
     setStatus("uploading");
     setAnalysis(null);
@@ -176,6 +179,7 @@ export default function Home() {
   // Reset all state to allow a fresh analysis
   const resetUpload = () => {
     setFile(null);
+    setResumeFile(null);
     setStatus("idle");
     setResumeText("");
     setJobDescription("");
@@ -189,6 +193,7 @@ export default function Home() {
     setGenerateCoverLetter(true);
     setDocuments(null);
     setGeneratingDocs(false);
+    setDownloadingResume(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -345,23 +350,38 @@ export default function Home() {
     setTimeout(() => setCopiedDoc(null), 2000);
   };
 
-  // Download the tailored resume as a .docx file
+  // Download resume as formatted .docx using the original file's structure
   const handleDownloadResume = async () => {
-    if (!documents?.resume) return;
+    if (!documents?.resume || !resumeFile) return;
+    setDownloadingResume(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", resumeFile);
+      formData.append("content", documents.resume);
 
-    const paragraphs = documents.resume.split("\n").map((line: string) => {
-      if (line.trim() === "") return new Paragraph({ text: "" });
-      return new Paragraph({
-        children: [new TextRun({ text: line, size: 22, font: "Calibri" })],
+      const res = await fetch("/api/generate-resume-docx", {
+        method: "POST",
+        body: formData,
       });
-    });
 
-    const doc = new Document({
-      sections: [{ properties: {}, children: paragraphs }],
-    });
+      if (!res.ok) {
+        alert("Failed to generate formatted resume. Please try again.");
+        return;
+      }
 
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, "resume-tailored.docx");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "resume-tailored.docx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Resume download failed:", err);
+      alert("Download failed. Please try again.");
+    } finally {
+      setDownloadingResume(false);
+    }
   };
 
   // Download the cover letter as a .docx file
@@ -1086,10 +1106,20 @@ export default function Home() {
                           </button>
                           <button
                             onClick={handleDownloadResume}
-                            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                            disabled={downloadingResume}
+                            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
                           >
-                            <Download size={11} />
-                            Download as .docx
+                            {downloadingResume ? (
+                              <>
+                                <Loader2 size={11} className="animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Download size={11} />
+                                Download as .docx
+                              </>
+                            )}
                           </button>
                         </div>
                       </div>
