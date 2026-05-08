@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { motion, useMotionValue, useSpring } from "framer-motion";
 
 const GLOW_SIZE = 600;
@@ -32,7 +32,8 @@ export const AmbientGlow = () => {
           top: -GLOW_SIZE / 2,
           x: springX,
           y: springY,
-          background: "radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 100%)",
+          /* Brand red core fading to highlight pink — matches --brand-red and --highlight */
+          background: "radial-gradient(circle, rgba(204, 41, 54, 0.06) 0%, rgba(255, 182, 185, 0.03) 50%, transparent 100%)",
           filter: "blur(40px)",
         }}
       />

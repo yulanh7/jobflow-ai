@@ -66,15 +66,15 @@ export const CustomCursor = () => {
 
   return (
     <div aria-hidden="true">
-      {/* Inner dot — mix-blend-mode:difference inverts against background */}
+      {/* Inner dot — brand red */}
       <motion.div
-        className="pointer-events-none fixed z-[9999] rounded-full bg-white"
+        className="pointer-events-none fixed z-[9999] rounded-full"
         style={{
           x: dotX,
           y: dotY,
           translateX: "-50%",
           translateY: "-50%",
-          mixBlendMode: "difference",
+          background: "#cc2936",
         }}
         animate={{
           width: hovering ? 10 : 5,
@@ -84,7 +84,7 @@ export const CustomCursor = () => {
         transition={{ duration: 0.15 }}
       />
 
-      {/* Outer ring — spring-lagged, themed indigo */}
+      {/* Outer ring — spring-lagged, brand red */}
       <motion.div
         className="pointer-events-none fixed z-[9998] rounded-full"
         style={{
@@ -92,7 +92,8 @@ export const CustomCursor = () => {
           y: ringY,
           translateX: "-50%",
           translateY: "-50%",
-          border: "1.5px solid rgba(99, 102, 241, 0.65)",
+          border: "1.5px solid rgba(204, 41, 54, 0.4)",
+          boxShadow: "0 0 8px rgba(204, 41, 54, 0.2)",
         }}
         animate={{
           width: hovering ? 44 : 30,

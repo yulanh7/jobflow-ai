@@ -8,7 +8,7 @@ interface GlassConsoleProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export const GlassConsole = React.forwardRef<HTMLDivElement, GlassConsoleProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, style, ...props }, ref) => {
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const [hovered, setHovered] = useState(false);
 
@@ -21,9 +21,15 @@ export const GlassConsole = React.forwardRef<HTMLDivElement, GlassConsoleProps>(
       <div
         ref={ref}
         className={cn(
-          "relative backdrop-blur-2xl border border-white/10 rounded-[2.5rem] bg-zinc-900/20 shadow-2xl overflow-hidden",
+          "relative backdrop-blur-2xl rounded-[2.5rem] shadow-2xl overflow-hidden",
           className
         )}
+        style={{
+          background: "rgba(64, 78, 112, 0.5)",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          backdropFilter: "blur(20px)",
+          ...style,
+        }}
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -36,8 +42,8 @@ export const GlassConsole = React.forwardRef<HTMLDivElement, GlassConsoleProps>(
           style={{
             opacity: hovered ? 1 : 0,
             background: `radial-gradient(500px circle at ${pos.x}px ${pos.y}px,
-              rgba(99,102,241,0.13) 0%,
-              rgba(139,92,246,0.06) 40%,
+              rgba(204, 41, 54, 0.1) 0%,
+              rgba(255, 182, 185, 0.05) 40%,
               transparent 70%)`,
           }}
         />
