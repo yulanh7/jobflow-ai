@@ -386,6 +386,9 @@ export default function Home() {
       }
 
       setAnalysis(data);
+      setTimeout(() => {
+        document.getElementById("section-analysis")?.scrollIntoView({ behavior: "smooth" });
+      }, 300);
     } catch (err) {
       console.error("Analysis failed:", err);
       alert("Check your internet connection and try again.");
@@ -1045,7 +1048,7 @@ export default function Home() {
                                     Analysing...
                                   </span>
                                 ) : (
-                                  "Start AI Alignment"
+                                  analysis ? "Re-analyse" : "Start AI Alignment"
                                 )}
                               </motion.button>
                             </motion.div>
