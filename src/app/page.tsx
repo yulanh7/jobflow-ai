@@ -387,7 +387,8 @@ export default function Home() {
 
       setAnalysis(data);
       setTimeout(() => {
-        document.getElementById("section-analysis")?.scrollIntoView({ behavior: "smooth" });
+        const el = document.getElementById("section-analysis");
+        if (el) window.scrollTo({ top: el.offsetTop + 200, behavior: "smooth" });
       }, 300);
     } catch (err) {
       console.error("Analysis failed:", err);
@@ -787,7 +788,7 @@ export default function Home() {
                   setActiveSection(item.id);
                   const el = document.getElementById(item.id);
                   if (el) setNavY(el.offsetTop);
-                  el?.scrollIntoView({ behavior: "smooth" });
+                  if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: "smooth" });
                   setTimeout(() => { isScrollingRef.current = false; }, 800);
                 }}
                 className="flex items-center gap-2 group"
@@ -829,7 +830,7 @@ export default function Home() {
                   setActiveSection(item.id);
                   const el = document.getElementById(item.id);
                   if (el) setNavY(el.offsetTop);
-                  el?.scrollIntoView({ behavior: "smooth" });
+                  if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: "smooth" });
                   setTimeout(() => { isScrollingRef.current = false; }, 800);
                 }}
                 className="flex flex-col items-center gap-1"
@@ -1025,7 +1026,7 @@ export default function Home() {
                                   setJobDescription(e.target.value)
                                 }
                                 placeholder="Paste the Job Description here..."
-                                className="w-full h-36 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-indigo-500/50 transition-colors mb-4"
+                                className="w-full h-36 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-400 resize-none focus:outline-none focus:border-indigo-500/50 transition-colors mb-4"
                               />
 
                               <motion.button
@@ -1796,7 +1797,7 @@ export default function Home() {
                             value={extraContext}
                             onChange={(e) => setExtraContext(e.target.value)}
                             placeholder="Optional: add extra context — e.g. 'I recently learned Angular' or 'I have Baseline Clearance'"
-                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-emerald-500/50 transition-colors mb-4"
+                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-400 resize-none focus:outline-none focus:border-emerald-500/50 transition-colors mb-4"
                           />
 
                           <motion.button
@@ -1843,7 +1844,7 @@ export default function Home() {
                                 value={feedback}
                                 onChange={(e) => setFeedback(e.target.value)}
                                 placeholder="e.g. Make the summary shorter, add more emphasis on React experience"
-                                className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-white/20 transition-colors mb-3"
+                                className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-400 resize-none focus:outline-none focus:border-white/20 transition-colors mb-3"
                               />
                               <motion.button
                                 whileHover={{
@@ -2096,7 +2097,7 @@ export default function Home() {
                               setEmployerQuestions(e.target.value)
                             }
                             placeholder={`e.g. Which of the following statements best describes your right to work in Australia?\nDo you hold Australian Security Clearance?`}
-                            className="w-full h-28 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-violet-500/50 transition-colors mb-4"
+                            className="w-full h-28 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-400 resize-none focus:outline-none focus:border-violet-500/50 transition-colors mb-4"
                           />
                           <motion.button
                             whileHover={{
