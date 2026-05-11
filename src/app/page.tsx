@@ -275,6 +275,7 @@ export default function Home() {
   const [documents, setDocuments] = useState<{
     resume: string | null;
     coverLetter: string | null;
+    changes: string[] | null;
   } | null>(null);
   const [copiedDoc, setCopiedDoc] = useState<"resume" | "coverLetter" | null>(
     null
@@ -1275,11 +1276,11 @@ export default function Home() {
                                         <motion.li
                                           key={i}
                                           variants={listItem}
-                                          className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
+                                          className="text-sm text-zinc-200 flex gap-2.5 leading-relaxed"
                                         >
                                           <span
                                             className="shrink-0 mt-0.5"
-                                            style={{ color: "#cc2936" }}
+                                            style={{ color: "#22c55e" }}
                                           >
                                             +
                                           </span>
@@ -1355,7 +1356,7 @@ export default function Home() {
                                           <motion.li
                                             key={i}
                                             variants={listItem}
-                                            className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
+                                            className="text-sm text-zinc-200 flex gap-2.5 leading-relaxed"
                                           >
                                             <span
                                               className="shrink-0 mt-0.5"
@@ -1412,7 +1413,7 @@ export default function Home() {
                                       <motion.li
                                         key={i}
                                         variants={listItem}
-                                        className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
+                                        className="text-sm text-zinc-200 flex gap-2.5 leading-relaxed"
                                       >
                                         <span
                                           className="shrink-0 mt-0.5"
@@ -1442,7 +1443,7 @@ export default function Home() {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="text-zinc-600 text-xs text-center py-12"
+                                className="text-zinc-400 text-xs text-center py-12"
                               >
                                 Results will appear here
                               </motion.p>
@@ -1557,7 +1558,7 @@ export default function Home() {
                                                 </span>
                                               )}
                                             </div>
-                                            <p className="text-xs text-zinc-600 leading-relaxed">
+                                            <p className="text-xs text-zinc-400 leading-relaxed">
                                               {gap.reason}
                                             </p>
                                           </div>
@@ -1598,7 +1599,7 @@ export default function Home() {
                                 </motion.button>
                               </>
                             ) : (
-                              <p className="text-zinc-600 text-xs">
+                              <p className="text-zinc-400 text-xs">
                                 No skill gaps identified
                               </p>
                             )}
@@ -1720,7 +1721,7 @@ export default function Home() {
                                                                   {res.url &&
                                                                     res.url !==
                                                                       res.title && (
-                                                                      <span className="text-zinc-600 ml-1">
+                                                                      <span className="text-zinc-400 ml-1">
                                                                         (
                                                                         {
                                                                           res.url
@@ -1742,7 +1743,7 @@ export default function Home() {
                                                             🤖 AI Learning
                                                             Prompt
                                                           </p>
-                                                          <p className="text-zinc-500 italic leading-relaxed">
+                                                          <p className="text-zinc-400 italic leading-relaxed">
                                                             {step.aiPrompt}
                                                           </p>
                                                         </div>
@@ -1829,7 +1830,7 @@ export default function Home() {
                                 </motion.button>
                               </div>
                             ) : (
-                              <p className="text-zinc-600 text-xs text-center py-12">
+                              <p className="text-zinc-400 text-xs text-center py-12">
                                 Results will appear here
                               </p>
                             )}
@@ -1954,6 +1955,35 @@ export default function Home() {
                                 "Generate Documents"
                               )}
                             </motion.button>
+
+                            {documents?.changes && documents.changes.length > 0 && (
+                              <div style={{ marginTop: "1.5rem" }}>
+                                <p style={{
+                                  fontSize: "0.65rem",
+                                  color: "#94a3b8",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.1em",
+                                  marginBottom: "0.75rem",
+                                }}>
+                                  What changed
+                                </p>
+                                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                  {documents.changes.map((change, i) => (
+                                    <li key={i} style={{
+                                      fontSize: "0.75rem",
+                                      color: "#94a3b8",
+                                      display: "flex",
+                                      gap: "0.5rem",
+                                      marginBottom: "0.5rem",
+                                      lineHeight: 1.5,
+                                    }}>
+                                      <span style={{ color: "#22c55e", flexShrink: 0 }}>✓</span>
+                                      {change}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
 
                             {documents && (
                               <div className="border-t border-white/5 mt-6 pt-6">
@@ -2171,7 +2201,7 @@ export default function Home() {
                                 )}
                               </div>
                             ) : (
-                              <p className="text-zinc-600 text-xs text-center py-12">
+                              <p className="text-zinc-400 text-xs text-center py-12">
                                 Results will appear here
                               </p>
                             )}
@@ -2302,7 +2332,7 @@ export default function Home() {
                                 </div>
                               </>
                             ) : (
-                              <p className="text-zinc-600 text-xs text-center py-12">
+                              <p className="text-zinc-400 text-xs text-center py-12">
                                 Results will appear here
                               </p>
                             )}
@@ -2315,6 +2345,38 @@ export default function Home() {
               </section>
             )}
           </div>
+          <footer style={{
+            textAlign: "center",
+            padding: "2rem 0 3rem",
+            borderTop: "1px solid rgba(255,255,255,0.05)",
+            marginTop: "2rem",
+          }}>
+            <p style={{
+              fontSize: "0.75rem",
+              color: "#475569",
+              letterSpacing: "0.05em",
+            }}>
+              Built by{" "}
+              <a
+                href="https://github.com/yulanh7"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#64748b", textDecoration: "underline" }}
+              >
+                Yulan
+              </a>
+              {" "}·{" "}
+              <a
+                href="https://github.com/yulanh7/jobflow-ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#64748b", textDecoration: "underline" }}
+              >
+                View Source
+              </a>
+              {" "}· 2026
+            </p>
+          </footer>
         </div>
       </main>
     </>

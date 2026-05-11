@@ -43,8 +43,9 @@ export async function POST(req: NextRequest) {
           properties: {
             resume: { type: SchemaType.STRING, nullable: true },
             coverLetter: { type: SchemaType.STRING, nullable: true },
+            changes: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true },
           },
-          required: ["resume", "coverLetter"],
+          required: ["resume", "coverLetter", "changes"],
         },
       },
     });
@@ -88,6 +89,9 @@ ${confirmedQualifications.join(", ")}
 
 ${generateResume ? `
 # Resume Rules (follow every rule strictly)
+
+After generating the resume, populate the "changes" array with 3-5 short bullet points describing what was changed from the original resume (e.g. "Tailored summary to match React/TypeScript focus in JD", "Reordered skills to prioritise Next.js and Node.js", "Strengthened bullet points with action verbs").
+
 
 ## Structure (in this exact order)
 1. Name — centred, bold
@@ -175,7 +179,8 @@ Do a final scan for banned words. If you find any, replace with a simpler altern
 Return ONLY valid JSON — no markdown, no explanation:
 {
   "resume": ${generateResume ? '"full resume as plain text, use \\n for line breaks"' : "null"},
-  "coverLetter": ${generateCoverLetter ? '"full cover letter as plain text, use \\n for line breaks"' : "null"}
+  "coverLetter": ${generateCoverLetter ? '"full cover letter as plain text, use \\n for line breaks"' : "null"},
+  "changes": ${generateResume ? '["3-5 short bullet points describing what was changed from the original resume, e.g. Tailored summary to match React/TypeScript focus in JD"]' : "null"}
 }
 `;
 
