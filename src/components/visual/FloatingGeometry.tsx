@@ -1,20 +1,31 @@
-"use client"
-import { motion } from "framer-motion"
+"use client";
+import { motion } from "framer-motion";
 
 export const FloatingGeometry = () => {
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 1, overflow: "hidden", pointerEvents: "none" }}>
-
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 1,
+        overflow: "hidden",
+        pointerEvents: "none",
+      }}
+    >
       {/* === Set 1: large outline shapes (section-geometric) === */}
 
       {/* geo-circle */}
       <motion.div
         style={{
-          position: "absolute", width: 300, height: 300,
-          top: "10%", left: "5%",
+          position: "absolute",
+          width: 300,
+          height: 300,
+          top: "10%",
+          left: "5%",
           borderRadius: "50%",
           border: "2px solid #ffb6b9",
-          opacity: 0.1, background: "transparent",
+          opacity: 0.1,
+          background: "transparent",
         }}
         animate={{ y: [0, -20, 0], rotate: [0, 5, 0] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
@@ -23,11 +34,15 @@ export const FloatingGeometry = () => {
       {/* geo-diamond */}
       <motion.div
         style={{
-          position: "absolute", width: 150, height: 150,
-          top: "60%", right: "10%",
+          position: "absolute",
+          width: 150,
+          height: 150,
+          top: "60%",
+          right: "10%",
           borderRadius: "8px",
           border: "2px solid #ffb6b9",
-          opacity: 0.1, background: "transparent",
+          opacity: 0.1,
+          background: "transparent",
           rotate: "45deg",
         }}
         animate={{ y: [0, 20, 0], rotate: ["45deg", "50deg", "45deg"] }}
@@ -37,11 +52,15 @@ export const FloatingGeometry = () => {
       {/* geo-square */}
       <motion.div
         style={{
-          position: "absolute", width: 200, height: 200,
-          bottom: "20%", left: "15%",
+          position: "absolute",
+          width: 200,
+          height: 200,
+          bottom: "20%",
+          left: "15%",
           borderRadius: "8px",
           border: "2px solid #ffb6b9",
-          opacity: 0.1, background: "transparent",
+          opacity: 0.1,
+          background: "transparent",
         }}
         animate={{ y: [0, -20, 0], rotate: [0, 5, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
@@ -52,10 +71,14 @@ export const FloatingGeometry = () => {
       {/* float-1: rounded square */}
       <motion.div
         style={{
-          position: "absolute", width: 120, height: 120,
-          top: "15%", right: "15%",
+          position: "absolute",
+          width: 120,
+          height: 120,
+          top: "15%",
+          right: "15%",
           borderRadius: "20px",
-          background: "linear-gradient(135deg, rgba(255,182,185,0.15), rgba(204,41,54,0.1))",
+          background:
+            "linear-gradient(135deg, rgba(255,182,185,0.15), rgba(204,41,54,0.1))",
           border: "1px solid rgba(255,255,255,0.2)",
           backdropFilter: "blur(10px)",
         }}
@@ -66,10 +89,14 @@ export const FloatingGeometry = () => {
       {/* float-2: organic blob shape */}
       <motion.div
         style={{
-          position: "absolute", width: 80, height: 80,
-          bottom: "25%", right: "20%",
+          position: "absolute",
+          width: 80,
+          height: 80,
+          bottom: "25%",
+          right: "20%",
           borderRadius: "30% 70% 70% 30% / 30% 30% 70% 70%",
-          background: "linear-gradient(135deg, rgba(255,182,185,0.15), rgba(204,41,54,0.1))",
+          background:
+            "linear-gradient(135deg, rgba(255,182,185,0.15), rgba(204,41,54,0.1))",
           border: "1px solid rgba(255,255,255,0.2)",
           backdropFilter: "blur(10px)",
         }}
@@ -78,19 +105,22 @@ export const FloatingGeometry = () => {
       />
 
       {/* float-3: circle */}
-      <motion.div
+      {/* <motion.div
         style={{
-          position: "absolute", width: 100, height: 100,
-          top: "40%", right: "8%",
+          position: "absolute",
+          width: 100,
+          height: 100,
+          top: "90%",
+          right: "40%",
           borderRadius: "50%",
-          background: "linear-gradient(135deg, rgba(255,182,185,0.15), rgba(204,41,54,0.1))",
+          background:
+            "linear-gradient(135deg, rgba(255,182,185,0.15), rgba(204,41,54,0.1))",
           border: "1px solid rgba(255,255,255,0.2)",
           backdropFilter: "blur(10px)",
         }}
         animate={{ y: [0, -20, 0] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-      />
-
+      /> */}
     </div>
-  )
-}
+  );
+};
