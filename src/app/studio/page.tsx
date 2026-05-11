@@ -403,6 +403,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   const [downloadingRewrite, setDownloadingRewrite] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
   const [activeSection, setActiveSection] = useState("section-analysis");
+  const [navY, setNavY] = useState<number>(100);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function toggleSection(id: string) {
@@ -873,18 +874,44 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   }, [analysis]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) setActiveSection(entry.target.id);
-        });
-      },
-      { threshold: 0.3 }
-    );
-    const sections = document.querySelectorAll("[id^='section-']");
-    sections.forEach((s) => observer.observe(s));
-    return () => observer.disconnect();
-  }, [analysis]);
+    const sectionIds = [
+      "section-analysis",
+      "section-skillgap",
+      "section-documents",
+      "section-employer",
+    ];
+
+    const observers: IntersectionObserver[] = [];
+
+    sectionIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              setActiveSection(id);
+              // Align nav to the top of the active section, clamped within safe viewport bounds
+              const rect = el.getBoundingClientRect();
+              const targetY = Math.max(80, Math.min(rect.top + 20, window.innerHeight - 200));
+              setNavY(targetY);
+            }
+          });
+        },
+        {
+          // Highlight when a section's top edge enters the middle band of the viewport
+          rootMargin: "-10% 0px -90% 0px",
+          threshold: 0,
+        }
+      );
+
+      observer.observe(el);
+      observers.push(observer);
+    });
+
+    return () => observers.forEach((o) => o.disconnect());
+  }, [analysis, collapsedSections]);
 
   // ── Nav items ──────────────────────────────────────────────────────────────
 
@@ -955,7 +982,13 @@ function StudioApp({ onLock }: { onLock: () => void }) {
         </div>
 
         {/* Left floating nav - desktop only */}
-        <nav className="hidden lg:flex fixed left-[max(1.5rem,calc(50%-42rem))] top-1/2 -translate-y-1/2 z-40 flex-col gap-4 bg-zinc-900/60 backdrop-blur-sm border border-white/5 rounded-xl px-3 py-4">
+        <nav
+          className="hidden lg:flex fixed left-[max(1.5rem,calc(50%-42rem))] z-40 flex-col gap-4 bg-zinc-900/60 backdrop-blur-sm border border-white/5 rounded-xl px-3 py-4"
+          style={{
+            top: navY,
+            transition: "top 0.4s ease",
+          }}
+        >
           {NAV_ITEMS.filter(
             (item) => item.id === "section-analysis" || !!analysis
           ).map((item) => (

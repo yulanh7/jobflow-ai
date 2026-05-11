@@ -296,7 +296,9 @@ export default function Home() {
   const [generatingAnswers, setGeneratingAnswers] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
   const [activeSection, setActiveSection] = useState("section-analysis");
+  const [navY, setNavY] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isScrollingRef = useRef(false);
 
   function toggleSection(id: string) {
     setCollapsedSections((prev) =>
@@ -664,18 +666,52 @@ export default function Home() {
   }, [analysis]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) setActiveSection(entry.target.id);
-        });
-      },
-      { threshold: 0.3 }
-    );
-    const sections = document.querySelectorAll("[id^='section-']");
-    sections.forEach((s) => observer.observe(s));
-    return () => observer.disconnect();
-  }, [analysis]);
+    const sectionIds = [
+      "section-analysis",
+      "section-skillgap",
+      "section-documents",
+      "section-employer",
+    ];
+
+    const OFFSET = window.innerHeight * 0.25;
+
+    const handleScroll = () => {
+      if (isScrollingRef.current) return;
+      const scrollY = window.scrollY;
+
+      // Resolve elements fresh each call — avoids stale snapshot when
+      // sections mount after the effect first runs (e.g. after analysis loads)
+      const liveSections = sectionIds
+        .map((id) => ({ id, el: document.getElementById(id) }))
+        .filter((s): s is { id: string; el: HTMLElement } => s.el !== null);
+
+      if (liveSections.length === 0) return;
+
+      // Keep the deepest section whose top has passed the offset line
+      let activeId = liveSections[0].id;
+      for (const { id, el } of liveSections) {
+        const top = el.getBoundingClientRect().top + scrollY;
+        if (top <= scrollY + OFFSET) activeId = id;
+      }
+      setActiveSection(activeId);
+
+      // Nav follows scroll position, clamped within the active section's bounds
+      const activeEl = document.getElementById(activeId);
+      if (activeEl) {
+        const NAV_HEIGHT = 120;
+        const sectionTop = activeEl.offsetTop;
+        const sectionBottom = sectionTop + activeEl.offsetHeight - NAV_HEIGHT;
+        setNavY(Math.min(Math.max(scrollY, sectionTop), sectionBottom));
+      }
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [analysis, collapsedSections]);
 
   // ── Nav items ──────────────────────────────────────────────────────────────
 
@@ -732,45 +768,53 @@ export default function Home() {
         <AmbientGlow />
         <FloatingGeometry />
 
-        {/* Left floating nav - desktop only */}
-        <nav className="hidden lg:flex fixed left-[max(1.5rem,calc(50%-42rem))] top-1/2 -translate-y-1/2 z-50 flex-col gap-4 bg-zinc-900/60 backdrop-blur-sm border border-white/5 rounded-xl px-3 py-4">
-          {NAV_ITEMS.filter(
-            (item) => item.id === "section-analysis" || !!analysis
-          ).map((item) => (
-            <button
-              key={item.id}
-              onClick={() =>
-                document
-                  .getElementById(item.id)
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
-              className="flex items-center gap-2 group"
-            >
-              <div
-                className="w-1.5 h-1.5 rounded-full transition-all"
-                style={
-                  activeSection === item.id
-                    ? {
-                        background: "#cc2936",
-                        boxShadow: "0 0 8px rgba(204, 41, 54, 0.6)",
-                      }
-                    : { background: "rgba(255, 255, 255, 0.2)" }
-                }
-              />
-              <span
-                className={`text-xs transition-colors ${
-                  activeSection === item.id
-                    ? "text-zinc-200"
-                    : "text-zinc-600 group-hover:text-zinc-400"
-                }`}
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-16 lg:pl-44">
+          {/* Tracking nav - desktop only, absolutely positioned to follow active section */}
+          <nav
+            className="hidden lg:flex flex-col gap-4 bg-zinc-900/60 backdrop-blur-sm border border-white/5 rounded-xl px-3 py-4"
+            style={{ position: "absolute", top: navY, left: 24, pointerEvents: "none" }}
+          >
+            {NAV_ITEMS.filter(
+              (item) => item.id === "section-analysis" || !!analysis
+            ).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  isScrollingRef.current = true;
+                  setActiveSection(item.id);
+                  const el = document.getElementById(item.id);
+                  if (el) setNavY(el.offsetTop);
+                  el?.scrollIntoView({ behavior: "smooth" });
+                  setTimeout(() => { isScrollingRef.current = false; }, 800);
+                }}
+                className="flex items-center gap-2 group"
+                style={{ pointerEvents: "auto" }}
               >
-                {item.label}
-              </span>
-            </button>
-          ))}
-        </nav>
+                <div
+                  className="w-1.5 h-1.5 rounded-full transition-all"
+                  style={
+                    activeSection === item.id
+                      ? {
+                          background: "#cc2936",
+                          boxShadow: "0 0 8px rgba(204, 41, 54, 0.6)",
+                        }
+                      : { background: "rgba(255, 255, 255, 0.2)" }
+                  }
+                />
+                <span
+                  className={`text-xs transition-colors ${
+                    activeSection === item.id
+                      ? "text-zinc-200"
+                      : "text-zinc-600 group-hover:text-zinc-400"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </nav>
 
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-16">
+          <div>
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -836,7 +880,7 @@ export default function Home() {
                     <div className="border-t border-white/5" />
                     <div className="grid grid-cols-[35%_1px_1fr]">
                       {/* Left: INPUT */}
-                      <div className="p-6 text-center">
+                      <div className="p-6 flex flex-col items-center">
                         <input
                           type="file"
                           ref={fileInputRef}
@@ -845,7 +889,7 @@ export default function Home() {
                           className="hidden"
                         />
 
-                        <AnimatePresence mode="wait">
+                        <AnimatePresence>
                           {status === "idle" && (
                             <motion.button
                               key="idle-btn"
@@ -2103,6 +2147,7 @@ export default function Home() {
               </GlassConsole>
             </section>
           )}
+          </div>
         </div>
       </main>
     </>
