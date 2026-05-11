@@ -776,7 +776,7 @@ export default function Home() {
         <div className="relative z-10 w-full max-w-7xl mx-auto px-0 py-16 lg:pl-44 pb-20 lg:pb-0 lg:px-6">
           {/* Tracking nav - desktop only, absolutely positioned to follow active section */}
           <nav
-            className="hidden lg:flex flex-col gap-4 bg-zinc-900/60 backdrop-blur-sm border border-white/5 rounded-xl px-3 py-4"
+            className="hidden lg:flex flex-col gap-4 bg-zinc-900/30 backdrop-blur-sm border border-white/[0.03] rounded-xl px-3 py-4"
             style={{
               position: "absolute",
               top: navY,
@@ -905,6 +905,48 @@ export default function Home() {
                   }}
                 >
                   JobFlow AI
+                  <motion.div
+                    style={{
+                      display: "inline-flex",
+                      marginLeft: "1rem",
+                      verticalAlign: "middle",
+                      width: 48,
+                      height: 48,
+                      position: "relative",
+                    }}
+                  >
+                    {/* Outer rotating ring */}
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 8,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        borderRadius: "50%",
+                        border: "1.5px solid rgba(204, 41, 54, 0.5)",
+                        borderTopColor: "#cc2936",
+                      }}
+                    />
+                    {/* Inner pulsing dot */}
+                    <motion.div
+                      animate={{ scale: [1, 1.3, 1], opacity: [0.6, 1, 0.6] }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                      style={{
+                        position: "absolute",
+                        inset: "30%",
+                        borderRadius: "50%",
+                        background: "#cc2936",
+                      }}
+                    />
+                  </motion.div>
                 </h1>
                 <p
                   style={{
@@ -915,8 +957,29 @@ export default function Home() {
                     margin: 0,
                   }}
                 >
-                  Canberra Professional Edition // 2026
+                  Canberra Professional Edition //{" "}
+                  <span
+                    style={{
+                      background: "rgba(204, 41, 54, 0.2)",
+                      border: "1px solid rgba(204, 41, 54, 0.4)",
+                      borderRadius: "4px",
+                      padding: "1px 6px",
+                      fontSize: "0.65rem",
+                      color: "#ffb6b9",
+                    }}
+                  >
+                    2026
+                  </span>
                 </p>
+                <div
+                  style={{
+                    height: "1px",
+                    background:
+                      "linear-gradient(90deg, rgba(204,41,54,0.4), rgba(255,182,185,0.2), transparent)",
+                    marginTop: "1.5rem",
+                    width: "40%",
+                  }}
+                />
               </div>
             </motion.div>
 
@@ -1063,7 +1126,8 @@ export default function Home() {
                                   disabled={!jobDescription || analyzing}
                                   className="w-full py-4 rounded-xl text-white font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                   style={{
-                                    background: "#cc2936",
+                                    background:
+                                      "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
                                     boxShadow:
                                       "0 0 24px rgba(204, 41, 54, 0.35)",
                                   }}
@@ -1496,7 +1560,8 @@ export default function Home() {
                                   }
                                   className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
                                   style={{
-                                    background: "#cc2936",
+                                    background:
+                                      "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
                                     color: "white",
                                     border: "none",
                                   }}
@@ -1856,7 +1921,8 @@ export default function Home() {
                               }
                               className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
                               style={{
-                                background: "#cc2936",
+                                background:
+                                  "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
                                 color: "white",
                                 border: "none",
                               }}
@@ -2150,7 +2216,8 @@ export default function Home() {
                               }
                               className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
                               style={{
-                                background: "#cc2936",
+                                background:
+                                  "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
                                 color: "white",
                                 border: "none",
                               }}
