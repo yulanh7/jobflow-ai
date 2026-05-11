@@ -21,7 +21,7 @@ export const GlassConsole = React.forwardRef<HTMLDivElement, GlassConsoleProps>(
       <div
         ref={ref}
         className={cn(
-          "relative backdrop-blur-2xl rounded-[2.5rem] shadow-2xl overflow-hidden",
+          "relative backdrop-blur-2xl rounded-none shadow-2xl overflow-hidden lg:rounded-[1rem]",
           className
         )}
         style={{
