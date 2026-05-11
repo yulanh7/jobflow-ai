@@ -982,6 +982,22 @@ export default function Home() {
                     width: "40%",
                   }}
                 />
+                <motion.p
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                  style={{
+                    fontSize: "0.95rem",
+                    color: "#94a3b8",
+                    marginTop: "1.5rem",
+                    maxWidth: "480px",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  Upload your resume, paste a job description — get an instant match
+                  score, skill gap analysis, a tailored resume and cover letter,
+                  all in one place.
+                </motion.p>
               </div>
             </motion.div>
 
