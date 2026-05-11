@@ -768,7 +768,7 @@ export default function Home() {
         <AmbientGlow />
         <FloatingGeometry />
 
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-16 lg:pl-44">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-16 lg:pl-44 pb-20 lg:pb-0">
           {/* Tracking nav - desktop only, absolutely positioned to follow active section */}
           <nav
             className="hidden lg:flex flex-col gap-4 bg-zinc-900/60 backdrop-blur-sm border border-white/5 rounded-xl px-3 py-4"
@@ -806,6 +806,42 @@ export default function Home() {
                     activeSection === item.id
                       ? "text-zinc-200"
                       : "text-zinc-600 group-hover:text-zinc-400"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </nav>
+
+          {/* Mobile bottom nav */}
+          <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center bg-zinc-900/90 backdrop-blur-sm border-t border-white/10 px-6 py-3">
+            {NAV_ITEMS.filter(
+              (item) => item.id === "section-analysis" || !!analysis
+            ).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  isScrollingRef.current = true;
+                  setActiveSection(item.id);
+                  const el = document.getElementById(item.id);
+                  if (el) setNavY(el.offsetTop);
+                  el?.scrollIntoView({ behavior: "smooth" });
+                  setTimeout(() => { isScrollingRef.current = false; }, 800);
+                }}
+                className="flex flex-col items-center gap-1"
+              >
+                <div
+                  className="w-1.5 h-1.5 rounded-full transition-all"
+                  style={
+                    activeSection === item.id
+                      ? { background: "#cc2936", boxShadow: "0 0 8px rgba(204,41,54,0.6)" }
+                      : { background: "rgba(255,255,255,0.2)" }
+                  }
+                />
+                <span
+                  className={`text-[10px] transition-colors ${
+                    activeSection === item.id ? "text-zinc-200" : "text-zinc-500"
                   }`}
                 >
                   {item.label}
@@ -878,7 +914,7 @@ export default function Home() {
                     className="overflow-hidden"
                   >
                     <div className="border-t border-white/5" />
-                    <div className="grid grid-cols-[35%_1px_1fr]">
+                    <div className="grid md:grid-cols-[35%_1px_1fr] grid-cols-1">
                       {/* Left: INPUT */}
                       <div className="p-6 flex flex-col items-center">
                         <input
@@ -1034,6 +1070,7 @@ export default function Home() {
 
                       {/* Center divider with triangle pointer */}
                       <div
+                        className="hidden md:block"
                         style={{
                           position: "relative",
                           background: "rgba(255,255,255,0.08)",
@@ -1325,7 +1362,7 @@ export default function Home() {
                       className="overflow-hidden"
                     >
                       <div className="border-t border-white/5" />
-                      <div className="grid grid-cols-[35%_1px_1fr]">
+                      <div className="grid md:grid-cols-[35%_1px_1fr] grid-cols-1">
                         {/* Left: INPUT */}
                         <div className="p-6">
                           {(analysis.skillGaps?.filter(
@@ -1451,6 +1488,7 @@ export default function Home() {
 
                         {/* Center divider with triangle pointer */}
                         <div
+                          className="hidden md:block"
                           style={{
                             position: "relative",
                             background: "rgba(255,255,255,0.08)",
@@ -1703,7 +1741,7 @@ export default function Home() {
                       className="overflow-hidden"
                     >
                       <div className="border-t border-white/5" />
-                      <div className="grid grid-cols-[35%_1px_1fr]">
+                      <div className="grid md:grid-cols-[35%_1px_1fr] grid-cols-1">
                         {/* Left: INPUT */}
                         <div className="p-6">
                           <div className="flex flex-col gap-3 mb-4">
@@ -1831,6 +1869,7 @@ export default function Home() {
 
                         {/* Center divider with triangle pointer */}
                         <div
+                          className="hidden md:block"
                           style={{
                             position: "relative",
                             background: "rgba(255,255,255,0.08)",
@@ -2041,7 +2080,7 @@ export default function Home() {
                       className="overflow-hidden"
                     >
                       <div className="border-t border-white/5" />
-                      <div className="grid grid-cols-[35%_1px_1fr]">
+                      <div className="grid md:grid-cols-[35%_1px_1fr] grid-cols-1">
                         {/* Left: INPUT */}
                         <div className="p-6">
                           <p className="text-xs text-zinc-500 mb-4">
@@ -2087,6 +2126,7 @@ export default function Home() {
 
                         {/* Center divider with triangle pointer */}
                         <div
+                          className="hidden md:block"
                           style={{
                             position: "relative",
                             background: "rgba(255,255,255,0.08)",
