@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
       - Only include skills explicitly required by the JD that are absent from the resume.
       - Maximum 5 entries, ordered by impact on the hiring decision.
       - If no skill gaps exist, return an empty array [] — never omit the skillGaps field.
+      - Never include language skills (e.g. Mandarin, Chinese, English) as skill gaps. Language proficiency cannot be learned in hours and is a personal attribute, not a technical skill gap. If the JD requires a language, note it in the gaps array instead with a suggestion to explicitly state language skills in the resume if the candidate already speaks the language.
 
       # Category Definitions (assign honestly — do not over-optimise)
       - interview_ready: Conceptual skills where understanding core concepts is enough to pass an interview question.
