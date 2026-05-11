@@ -908,7 +908,7 @@ export default function Home() {
                                   ease: "easeInOut",
                                 },
                               }}
-                              exit={{ opacity: 0, scale: 0.95 }}
+                              exit={{ opacity: 0, scale: 0.95, position: "absolute" }}
                               whileTap={{ scale: 0.98 }}
                               onClick={() => fileInputRef.current?.click()}
                               style={{
@@ -938,7 +938,7 @@ export default function Home() {
                               key="uploading-state"
                               initial={{ opacity: 0, scale: 0.9 }}
                               animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0 }}
+                              exit={{ opacity: 0, position: "absolute" }}
                               className="flex flex-col items-center gap-3"
                             >
                               <Loader2
