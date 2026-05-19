@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
       - Maximum 5 entries, ordered by impact on the hiring decision.
       - If no skill gaps exist, return an empty array [] — never omit the skillGaps field.
       - Never include language skills (e.g. Mandarin, Chinese, English) as skill gaps. Language proficiency cannot be learned in hours and is a personal attribute, not a technical skill gap. If the JD requires a language, note it in the gaps array instead with a suggestion to explicitly state language skills in the resume if the candidate already speaks the language.
+      - Never include citizenship, residency, or nationality requirements (e.g. "must be an Australian citizen", "must hold PR") as skill gaps. These are fixed eligibility criteria that cannot be obtained through learning. If the JD requires citizenship AND a security clearance bundled together, do not include it in skillGaps at all — note the eligibility barrier in the gaps array instead. A standalone security clearance (without a citizenship gate) may appear in skillGaps as long_term only if the candidate is already eligible to apply.
 
       # Category Definitions (assign honestly — do not over-optimise)
       - interview_ready: Conceptual skills where understanding core concepts is enough to pass an interview question.
