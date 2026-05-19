@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         "score": 0-100,
         "summary": "2-3 sentence overview",
         "strengths": ["Specific skill match 1", "Specific skill match 2"],
-        "gaps": ["Missing mandatory skill 1", "Requires Australian citizenship with an active Baseline Security Clearance — eligibility requirement, not a learnable skill"],
+        "gaps": ["Missing mandatory skill or experience explicitly required by the JD"],
         "suggestions": ["Actionable advice referencing specific resume content"],
         "skillGaps": [
           {
@@ -61,13 +61,13 @@ export async function POST(req: NextRequest) {
             "quickWinPlan": "Complete the official Angular Tour of Heroes tutorial, then build a small CRUD app. Enough to discuss confidently in interview."
           },
           {
-            "skill": "NV1 Security Clearance",
-            "reason": "Required by JD but not held",
+            "skill": "AWS / Cloud Infrastructure",
+            "reason": "JD requires cloud deployment experience but resume shows only on-premise deployments",
             "category": "long_term",
-            "timeEstimate": "3-6 months (application dependent)",
-            "interviewTip": "State you do not currently hold NV1 but are willing to apply — mention any prior government exposure or clean background that supports eligibility",
-            "longTermPartA": "Cannot fast-track a clearance — for interview, be transparent about status and express willingness to initiate the process",
-            "longTermPartB": "Applying requires employer sponsorship. Evaluate whether this role is worth pursuing without clearance — some employers hire and sponsor in parallel."
+            "timeEstimate": "1-2 months",
+            "interviewTip": "Highlight your Docker and server deployment experience as a transferable foundation, and mention you are actively building cloud skills",
+            "longTermPartA": "Complete AWS Cloud Practitioner or Solutions Architect Associate — gives you the credibility to discuss cloud architecture in interviews",
+            "longTermPartB": "Deploy a personal project to AWS (EC2 + S3 + RDS) to demonstrate hands-on cloud experience on your resume"
           }
         ]
       }
