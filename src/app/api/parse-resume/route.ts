@@ -1,7 +1,6 @@
 // Handles resume file uploads and extracts plain text from PDF and DOCX formats
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,8 +16,8 @@ export async function POST(req: NextRequest) {
     let text = "";
 
     if (file.type === "application/pdf") {
-      const parser = new PDFParse({ data: buffer });
-      const result = await parser.getText();
+      const pdfParse = (await import("pdf-parse")).default;
+      const result = await pdfParse(buffer);
       text = result.text.replace(/\n\s*\n/g, "\n").trim();
     } else if (
       file.type ===
