@@ -94,7 +94,7 @@ export const CustomCursor = () => {
         animate={{
           width: cursorType === "pointer" ? 12 : cursorType === "text" ? 2 : 36,
           height: cursorType === "pointer" ? 12 : cursorType === "text" ? 24 : 36,
-          background: cursorType === "default" ? "transparent" : cursorType === "pointer" ? "#ffffff" : "#cc2936",
+          background: cursorType === "default" ? "rgba(0,0,0,0)" : cursorType === "pointer" ? "#ffffff" : "#cc2936",
           border: cursorType === "default" ? "1.5px solid rgba(204,41,54,0.72)" : "none",
           boxShadow: cursorType === "default" ? "0 0 8px rgba(204,41,54,0.22)" : cursorType === "pointer" ? "0 0 12px rgba(255, 255, 255, 0.6)" : "none",
           borderRadius: cursorType === "text" ? "1px" : "50%",
