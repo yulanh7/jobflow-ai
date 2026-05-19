@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
       feedback,
       previousResume,
       previousCoverLetter,
+      candidateName,
     } = await req.json();
 
     if (!resumeText || !jobDescription) {
@@ -28,7 +29,10 @@ export async function POST(req: NextRequest) {
 
     if (!generateResume && !generateCoverLetter) {
       return NextResponse.json(
-        { error: "At least one of generateResume or generateCoverLetter must be true" },
+        {
+          error:
+            "At least one of generateResume or generateCoverLetter must be true",
+        },
         { status: 400 }
       );
     }
@@ -43,7 +47,11 @@ export async function POST(req: NextRequest) {
           properties: {
             resume: { type: SchemaType.STRING, nullable: true },
             coverLetter: { type: SchemaType.STRING, nullable: true },
-            changes: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true },
+            changes: {
+              type: SchemaType.ARRAY,
+              items: { type: SchemaType.STRING },
+              nullable: true,
+            },
           },
           required: ["resume", "coverLetter", "changes"],
         },
@@ -63,31 +71,49 @@ ${jobDescription}
 
 ${extraContext ? `# Extra Context from Candidate\n${extraContext}` : ""}
 
-${feedback && previousResume ? `
+${
+  feedback && previousResume
+    ? `
 # User Feedback on Previous Version
 ${feedback}
 
 # Previous Resume (revise this based on feedback above)
 ${previousResume}
 
-${previousCoverLetter ? `# Previous Cover Letter (revise this based on feedback above)
-${previousCoverLetter}` : ""}
+${
+  previousCoverLetter
+    ? `# Previous Cover Letter (revise this based on feedback above)
+${previousCoverLetter}`
+    : ""
+}
 
 IMPORTANT: Keep everything that was good, only change what the feedback requests.
-` : ""}
+`
+    : ""
+}
 
 # Task
 ${generateResume ? "Generate a tailored one-page resume." : ""}
 ${generateCoverLetter ? "Generate a tailored cover letter." : ""}
 
-${confirmedQualifications?.length > 0 ? `
-# Confirmed Qualifications (candidate confirmed they hold these)
-${confirmedQualifications.join(", ")}
-- Add to Skills section of resume
-- Mention in cover letter: "I hold [qualification]"
-` : ""}
+# Identity Rule (CRITICAL — never violate this)
+CONFIRMED QUALIFICATIONS: ${confirmedQualifications?.length > 0 ? confirmedQualifications.join(", ") : "NONE"}
+1. CITIZENSHIP:
+   - If "Australian Citizen" is NOT in the confirmed list: 
+     * STRICTLY FORBIDDEN to mention citizenship. 
+     * USE: "I hold full Australian working rights."
+2. SECURITY CLEARANCE:
+   - If a clearance (Baseline/NV1/NV2) is NOT in the confirmed list:
+     * DO NOT say "I hold it" or "I will initiate it."
+     * IF citizenship IS in the confirmed list: USE "I am an Australian citizen and am ready to undergo the [clearance level] vetting process upon sponsorship."
+     * IF citizenship is NOT in the confirmed list: USE "I am willing to undergo all necessary background and suitability checks required for this position."
+3. NO HALLUCINATION:
+   - Never assume PR or citizenship if not explicitly provided.
+${confirmedQualifications?.length > 0 ? `- These confirmed qualifications SHOULD be added to the Skills section of the resume and mentioned naturally in the cover letter.` : ""}
 
-${generateResume ? `
+${
+  generateResume
+    ? `
 # Resume Rules (follow every rule strictly)
 
 After generating the resume, populate the "changes" array with 3-5 short bullet points describing what was changed from the original resume (e.g. "Tailored summary to match React/TypeScript focus in JD", "Reordered skills to prioritise Next.js and Node.js", "Strengthened bullet points with action verbs").
@@ -123,54 +149,67 @@ elevate, optimize, keen, extensive, versatility, progressive, esteemed,
 excited by the prospect, strongly aligns, well-suited, coupled with,
 furthermore, intricate, spearheaded, adept, proficient in,
 solid foundation, strong foundation, specializing
-` : ""}
-${generateCoverLetter ? `
+`
+    : ""
+}
+${
+  generateCoverLetter
+    ? `
 # Cover Letter Rules (follow every rule strictly)
 
 ## Format
-- Start with: "Dear Hiring Manager,"
+- Greeting: Scan the JD for a named hiring manager or recruiter. If found, use "Dear [Name]," — otherwise use "Dear Hiring Manager,"
 - Blank line after salutation
 - 4 paragraphs (no bullet points)
 - Blank line before closing
-- End with: "Yours sincerely,\n\nRachel Huang"
-- MUST be 300-350 words — count carefully, do not submit outside this range
+- End with: "Kind regards,\n\n${candidateName?.trim() || "[Your Name]"}"
+- MUST be 200-250 words — count carefully, do not submit outside this range
 
 ## Structure
+
 Paragraph 1 — Opening (2-3 sentences):
-"I'm applying for the [exact role title] at [company name from JD].
-I have [X]+ years building [most relevant tech from JD].
-I'm Canberra-based with valid Australian work rights."
+Do NOT open with "I am writing to express my interest in" or "I am pleased to apply for" — these are clichés. Instead open with: "I am applying for the [exact role title] at [company/agency from JD]." Then state years of experience with the most relevant technology from the JD. If the candidate holds any confirmed qualifications (clearance, citizenship etc.) that the JD requires — state them here naturally. Otherwise state Canberra-based and Australian work rights.
 
-Paragraph 2 — Strongest evidence (5-6 sentences):
-Pick 1-2 projects from the resume that best match this JD.
-Give specific details: tech used, scale, what you built, outcome.
-Reference actual numbers from the resume only.
+Paragraph 2 — Challenge + evidence (5-6 sentences):
+Step 1: Identify ONE major technical challenge or requirement from the JD (e.g. scale, accessibility, specific platform, complex integration).
+Step 2: Write 1 sentence naming that challenge in the JD's own words.
+Step 3: Write 2-3 sentences showing how a specific project from the resume directly addressed a similar challenge — include at least 2 concrete numbers from the resume (e.g. users served, coverage %, years, site count).
+Step 4: Do NOT list every technology. Tell a story about impact, not a catalogue of skills.
+Do NOT mention any skill gaps or missing qualifications in this paragraph.
 
-Paragraph 3 — Why this company (3-4 sentences):
-Extract what makes this role/company specific from the JD.
-Show genuine alignment — not generic enthusiasm.
-If JD mentions government, national systems, or specific domain — reference it.
+Paragraph 3 — Why this role (3-4 sentences):
+Extract what is genuinely specific about this role or organisation from the JD — not generic praise.
+Reference specific terms from the JD: named systems, platforms, domains, or outcomes.
+Show how the candidate's background connects to those specifics — not enthusiasm, evidence.
 
 Paragraph 4 — Gap + closing (4-5 sentences):
-If there is an employment gap in the resume, explain in 2 sentences:
-"Since [last role end date], I built a community platform using Next.js,
-Redux Toolkit, and TypeScript. I'm ready to return to full-time work."
-If no gap, skip this and go straight to closing.
-Closing: express readiness to contribute, invite next step.
+If there is an employment gap in the resume, explain it in 1-2 sentences using specific project details.
+Do NOT use these generic closing phrases: "I am confident in my ability", "I look forward to the opportunity", "I am available for an interview at your earliest convenience", "I would welcome the chance", "I am eager to bring".
+Close with a direct, active statement: name what you bring to this specific role, then invite the next step in one sentence. Do not repeat any sentiment already used in paragraph 3.
 
-## Same Banned Words as Resume
+## Banned Words and Phrases (NEVER use — run a check before finalising)
 ensure, crucial, vital, leverage, seamless, seamlessly, comprehensive,
 robust, innovative, cutting-edge, dynamic, synergy, facilitate, enhance,
 keen, extensive, strongly aligns, well-suited, coupled with, furthermore,
 spearheaded, adept, proficient in, excited by the prospect, esteemed,
-solid foundation, strong foundation, specializing
+solid foundation, strong foundation, specializing, effectively, impactful,
+confident in my ability, contribute positively, collaborate effectively,
+very compelling, particularly appeals, eager to apply,
+I am writing to express my interest, I am pleased to apply,
+available for an interview at your earliest convenience,
+particularly appealing, prospect of supporting, it is with great,
+I would be a great fit, I believe I am,
+passionate, deeply, resonates, moreover,
+I possess the technical foundation, eager to apply my skills, eager to bring,
+this role is particularly appealing, I am eager to, possess the technical foundation,
+particularly appealing, prospect of supporting
 
-CRITICAL: Before finalising, count every word in your cover letter.
-Target is exactly 300-350 words.
-If under 300: expand paragraph 2 with more project specifics.
-If over 350: remove filler phrases and adjectives.
-Do a final word count check before outputting.
-` : ""}
+CRITICAL: Target 200-250 words. Prioritise information density — do NOT add filler sentences to reach a word count.
+If over 320: cut adjectives and filler phrases, not content.
+Never pad with generic enthusiasm to reach a target.
+`
+    : ""
+}
 
 # Final Checks (do these before responding)
 Do a final scan for banned words. If you find any, replace with a simpler alternative.
@@ -230,7 +269,10 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     if (error.status === 429 || error.message?.includes("429")) {
       return NextResponse.json(
-        { error: "API rate limit exceeded. Please wait a minute before retrying." },
+        {
+          error:
+            "API rate limit exceeded. Please wait a minute before retrying.",
+        },
         { status: 429 }
       );
     }

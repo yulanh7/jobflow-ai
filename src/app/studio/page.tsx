@@ -360,6 +360,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   const [copiedBullet, setCopiedBullet] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
   const [expandedPlans, setExpandedPlans] = useState<string[]>([]);
+  const [candidateName, setCandidateName] = useState("");
   const [extraContext, setExtraContext] = useState("");
   const [generateResume, setGenerateResume] = useState(true);
   const [generateCoverLetter, setGenerateCoverLetter] = useState(true);
@@ -593,6 +594,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
           generateResume,
           generateCoverLetter,
           confirmedQualifications,
+          candidateName,
         }),
       });
       const data = await res.json();
@@ -734,6 +736,8 @@ function StudioApp({ onLock }: { onLock: () => void }) {
           resumeText,
           jobDescription,
           selectedGaps: selectedGapDetails,
+          candidateName,
+          confirmedQualifications,
         }),
       });
       const data = await res.json();
@@ -872,6 +876,13 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   useEffect(() => {
     if (analysis) setCollapsedSections([]);
   }, [analysis]);
+
+  useEffect(() => {
+    if (confirmedQualifications.length > 0) {
+      setGenerateResume(true);
+      setGenerateCoverLetter(true);
+    }
+  }, [confirmedQualifications]);
 
   useEffect(() => {
     const sectionIds = [
@@ -2055,6 +2066,30 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                               </label>
                             ))}
                           </div>
+
+                          {confirmedQualifications.length > 0 && (
+                            <div className="mb-4 px-3 py-2.5 rounded-lg border border-indigo-500/25 bg-indigo-500/10">
+                              <p className="text-[10px] uppercase tracking-widest text-indigo-300 mb-1.5">
+                                Confirmed qualifications — will be added to documents
+                              </p>
+                              <ul className="space-y-0.5">
+                                {confirmedQualifications.map((q, i) => (
+                                  <li key={i} className="flex items-start gap-1.5 text-xs text-zinc-300">
+                                    <Check size={10} className="text-indigo-400 mt-0.5 shrink-0" strokeWidth={3} />
+                                    {q}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          <input
+                            type="text"
+                            value={candidateName}
+                            onChange={(e) => setCandidateName(e.target.value)}
+                            placeholder="Your full name (for cover letter sign-off)"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors mb-3"
+                          />
 
                           <textarea
                             value={extraContext}

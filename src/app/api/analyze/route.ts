@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         "score": 0-100,
         "summary": "2-3 sentence overview",
         "strengths": ["Specific skill match 1", "Specific skill match 2"],
-        "gaps": ["Missing mandatory skill 1"],
+        "gaps": ["Missing mandatory skill 1", "Requires Australian citizenship with an active Baseline Security Clearance — eligibility requirement, not a learnable skill"],
         "suggestions": ["Actionable advice referencing specific resume content"],
         "skillGaps": [
           {
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       - Maximum 5 entries, ordered by impact on the hiring decision.
       - If no skill gaps exist, return an empty array [] — never omit the skillGaps field.
       - Never include language skills (e.g. Mandarin, Chinese, English) as skill gaps. Language proficiency cannot be learned in hours and is a personal attribute, not a technical skill gap. If the JD requires a language, note it in the gaps array instead with a suggestion to explicitly state language skills in the resume if the candidate already speaks the language.
-      - Never include citizenship, residency, or nationality requirements (e.g. "must be an Australian citizen", "must hold PR") as skill gaps. These are fixed eligibility criteria that cannot be obtained through learning. If the JD requires citizenship AND a security clearance bundled together, do not include it in skillGaps at all — note the eligibility barrier in the gaps array instead. A standalone security clearance (without a citizenship gate) may appear in skillGaps as long_term only if the candidate is already eligible to apply.
+      - Citizenship, residency, and security clearance requirements (e.g. "must be an Australian citizen", "active Baseline Security Clearance", "NV1", "NV2", "must hold PR") MUST appear in the gaps array as plain text — they are eligibility criteria, not learnable skills. They MUST NOT appear in skillGaps under any circumstances. Write them in gaps as: "Requires [exact requirement from JD] — eligibility requirement, not a learnable skill".
 
       # Category Definitions (assign honestly — do not over-optimise)
       - interview_ready: Conceptual skills where understanding core concepts is enough to pass an interview question.

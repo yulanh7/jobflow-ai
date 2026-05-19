@@ -7,11 +7,25 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: NextRequest) {
   try {
-    const { resumeText, jobDescription, selectedGaps } = await req.json();
+    const {
+      resumeText,
+      jobDescription,
+      selectedGaps,
+      candidateName,
+      confirmedQualifications,
+    } = await req.json();
 
-    if (!resumeText || !jobDescription || !Array.isArray(selectedGaps) || selectedGaps.length === 0) {
+    if (
+      !resumeText ||
+      !jobDescription ||
+      !Array.isArray(selectedGaps) ||
+      selectedGaps.length === 0
+    ) {
       return NextResponse.json(
-        { error: "resumeText, jobDescription, and selectedGaps (non-empty array) are required" },
+        {
+          error:
+            "resumeText, jobDescription, and selectedGaps (non-empty array) are required",
+        },
         { status: 400 }
       );
     }
@@ -80,28 +94,60 @@ For "long_term" skills:
    comprehensive, robust, innovative, facilitate, enhance, keen,
    furthermore, coupled with, well-suited, spearheaded, adept
 
-# Cover Letter Rules
-1. Start with: "Dear Hiring Manager,"
-2. Blank line after salutation
-3. 4 paragraphs, no bullet points
-4. Blank line before closing
-5. End with: "Yours sincerely,\n\nRachel Huang"
-6. Naturally weave in the new skills without sounding forced
+# Identity Rule (CRITICAL — never violate this)
+CONFIRMED QUALIFICATIONS: ${confirmedQualifications?.length > 0 ? confirmedQualifications.join(", ") : "NONE"}
+- If "Australian citizen" or citizenship is NOT in the confirmed list: DO NOT mention citizenship. Use "I hold full Australian working rights."
+- If a security clearance is required by the JD but NOT in the confirmed list:
+  DO NOT claim to hold it.
+  If citizenship IS in the confirmed list: use "I am ready to undergo the vetting process for [Clearance Level] upon sponsorship."
+  If citizenship is NOT in the confirmed list: use "I am willing to undergo all required background and character suitability assessments."
+- Never hallucinate or infer citizenship, PR status, or security clearance from the resume.
 
-CRITICAL WORD COUNT RULE:
-The cover letter MUST contain between 300-350 words.
-Count every single word before responding.
-If under 300 words: expand Body paragraph 1 with more specific
-project details, technologies used, and measurable outcomes.
-Never submit a cover letter under 300 words.
+# Cover Letter Rules (follow every rule strictly)
 
-BANNED WORDS — using any of these will fail the quality check.
-Do a final scan of your output before responding.
-Remove any instance of: ensure, crucial, vital, leverage, seamless,
-seamlessly, comprehensive, robust, innovative, cutting-edge, dynamic,
-synergy, facilitate, enhance, keen, extensive, strongly aligns,
-well-suited, coupled with, furthermore, spearheaded, adept,
-specializing, solid foundation, proven ability, complex applications
+## Format
+- Greeting: Scan the JD for a named hiring manager or recruiter. If found, use "Dear [Name]," — otherwise use "Dear Hiring Manager,"
+- Blank line after salutation
+- 4 paragraphs, no bullet points
+- Blank line before closing
+- End with: "Kind regards,\n\n${candidateName?.trim() || "[Your Name]"}"
+- Target 200-250 words. Prioritise information density — do NOT pad with filler sentences to reach a word count.
+
+## Structure
+
+Paragraph 1 — Opening (2-3 sentences):
+Do NOT open with "I am writing to express my interest in" or "I am pleased to apply for."
+State the exact role title and company/agency. State years of experience with the most relevant tech from the JD.
+State only confirmed qualifications/work rights — never assume citizenship or clearance.
+
+Paragraph 2 — Challenge + evidence (4-5 sentences):
+Identify ONE major challenge or requirement from the JD. Name it in one sentence.
+Then show how a specific project from the resume addressed a similar challenge — include at least 2 numbers from the resume.
+Weave in new skills naturally: for quick_win skills mention them as recently applied; for interview_ready mention as expanding knowledge; for long_term one honest sentence only.
+Do NOT list technologies. Tell a story about impact.
+
+Paragraph 3 — Why this role (2-3 sentences):
+Reference specific terms from the JD: named systems, platforms, domains, or outcomes.
+Connect the candidate's background to those specifics with evidence, not enthusiasm.
+
+Paragraph 4 — Closing (2-3 sentences):
+Do NOT use: "I am confident in my ability", "I look forward to the opportunity", "I am available for an interview at your earliest convenience", "contribute positively", "collaborate effectively".
+State what you bring to this specific role, then invite the next step directly. Example: "I welcome a technical discussion regarding my fit for the team."
+
+## Banned Words and Phrases (run a final scan before submitting)
+ensure, crucial, vital, leverage, seamless, seamlessly, comprehensive,
+robust, innovative, cutting-edge, dynamic, synergy, facilitate, enhance,
+keen, extensive, strongly aligns, well-suited, coupled with, furthermore,
+spearheaded, adept, proficient in, excited by the prospect, esteemed,
+solid foundation, strong foundation, specializing, effectively, impactful,
+confident in my ability, contribute positively, collaborate effectively,
+very compelling, particularly appeals, eager to apply,
+I am writing to express my interest, I am pleased to apply,
+available for an interview at your earliest convenience,
+proven ability, complex applications, particularly appealing,
+passionate, deeply, resonates, moreover,
+I possess the technical foundation, eager to apply my skills, eager to bring,
+this role is particularly appealing, I am eager to
 
 # Output
 Return ONLY valid JSON — no markdown, no explanation:
@@ -157,7 +203,10 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     if (error.status === 429 || error.message?.includes("429")) {
       return NextResponse.json(
-        { error: "API rate limit exceeded. Please wait a minute before retrying." },
+        {
+          error:
+            "API rate limit exceeded. Please wait a minute before retrying.",
+        },
         { status: 429 }
       );
     }
