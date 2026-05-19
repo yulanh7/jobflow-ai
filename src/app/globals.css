@@ -5,9 +5,9 @@
 :root {
   --highlight: #ffb6b9;
   --brand-red: #cc2936;
-  --text-subtitle: #cbd5e1;
-  --text-body: #94a3b8;
-  --text-muted: rgba(148, 163, 184, 0.4);
+  --text-subtitle: #e2e8f0;
+  --text-body: #cbd5e1;
+  --text-muted: rgba(241, 246, 253, 0.55);
   --bg-card: rgba(255, 255, 255, 0.05);
   --border-card: rgba(255, 255, 255, 0.08);
   --accent-analysis: #cc2936;
@@ -31,7 +31,7 @@ body {
   margin: 0;
   min-height: 100vh;
   background: #f8fafc;
-  color: #94a3b8;
+  color: #cbd5e1;
   line-height: 1.6;
   overflow-x: hidden;
 }
@@ -45,29 +45,34 @@ section[id^="section-"] {
 /* globally rather than sprinkling inline styles across every element.           */
 
 .text-zinc-200 {
-  color: #e2e8f0;
+  color: #f1f5f9;
 }
 .text-zinc-300 {
-  color: #cbd5e1;
+  color: #e2e8f0;
 }
 .text-zinc-400 {
-  color: #94a3b8;
+  color: #cbd5e1;
 }
 .text-zinc-500 {
   color: #94a3b8;
 }
 .text-zinc-600 {
-  color: rgba(148, 163, 184, 0.4);
+  color: rgba(148, 163, 184, 0.6);
 }
 .text-zinc-700 {
-  color: rgba(148, 163, 184, 0.25);
+  color: rgba(148, 163, 184, 0.35);
 }
 
 /* ── Animations ─────────────────────────────────────────────────────────────── */
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 /* ── Cursor ─────────────────────────────────────────────────────────────────── */
