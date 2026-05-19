@@ -361,7 +361,9 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
   const [expandedPlans, setExpandedPlans] = useState<string[]>([]);
   const [candidateName, setCandidateName] = useState("");
+  const [docxParagraphCount, setDocxParagraphCount] = useState<number | null>(null);
   const [extraContext, setExtraContext] = useState("");
+  const [companyBackground, setCompanyBackground] = useState("");
   const [generateResume, setGenerateResume] = useState(true);
   const [generateCoverLetter, setGenerateCoverLetter] = useState(true);
   const [generatingDocs, setGeneratingDocs] = useState(false);
@@ -440,6 +442,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
       }
 
       setResumeText(data.text);
+      setDocxParagraphCount(data.paragraphCount ?? null);
       setStatus("success");
     } catch (err) {
       console.error("Upload failed:", err);
@@ -459,6 +462,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     setGeneratingPlan(false);
     setExpandedPlans([]);
     setExtraContext("");
+    setCompanyBackground("");
     setGenerateResume(true);
     setGenerateCoverLetter(true);
     setDocuments(null);
@@ -591,10 +595,12 @@ function StudioApp({ onLock }: { onLock: () => void }) {
           resumeText,
           jobDescription,
           extraContext,
+          companyBackground,
           generateResume,
           generateCoverLetter,
           confirmedQualifications,
           candidateName,
+          paragraphCount: docxParagraphCount,
         }),
       });
       const data = await res.json();
@@ -660,15 +666,23 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     if (!documents?.coverLetter) return;
 
     const paragraphs = documents.coverLetter.split("\n").map((line: string) => {
-      if (line.trim() === "") return new Paragraph({ text: "" });
+      const isEmpty = line.trim() === "";
+      const isSignOff = /^(Yours sincerely|Kind regards)/i.test(line.trim());
       return new Paragraph({
-        children: [new TextRun({ text: line, size: 24, font: "Calibri" })],
-        spacing: { after: 200 },
+        children: isEmpty ? [] : [new TextRun({ text: line, size: 24, font: "Calibri" })],
+        spacing: { after: isEmpty ? 0 : isSignOff ? 480 : 200 },
       });
     });
 
     const doc = new Document({
-      sections: [{ properties: {}, children: paragraphs }],
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+          },
+        },
+        children: paragraphs,
+      }],
     });
 
     const blob = await Packer.toBlob(doc);
@@ -738,6 +752,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
           selectedGaps: selectedGapDetails,
           candidateName,
           confirmedQualifications,
+          paragraphCount: docxParagraphCount,
         }),
       });
       const data = await res.json();
@@ -805,18 +820,24 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   const handleDownloadRewrittenCoverLetter = async () => {
     if (!rewrittenDocs?.coverLetter) return;
 
-    const paragraphs = rewrittenDocs.coverLetter
-      .split("\n")
-      .map((line: string) => {
-        if (line.trim() === "") return new Paragraph({ text: "" });
-        return new Paragraph({
-          children: [new TextRun({ text: line, size: 24, font: "Calibri" })],
-          spacing: { after: 200 },
-        });
+    const paragraphs = rewrittenDocs.coverLetter.split("\n").map((line: string) => {
+      const isEmpty = line.trim() === "";
+      const isSignOff = /^(Yours sincerely|Kind regards)/i.test(line.trim());
+      return new Paragraph({
+        children: isEmpty ? [] : [new TextRun({ text: line, size: 24, font: "Calibri" })],
+        spacing: { after: isEmpty ? 0 : isSignOff ? 480 : 200 },
       });
+    });
 
     const doc = new Document({
-      sections: [{ properties: {}, children: paragraphs }],
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+          },
+        },
+        children: paragraphs,
+      }],
     });
 
     const blob = await Packer.toBlob(doc);
@@ -834,6 +855,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
           resumeText,
           jobDescription,
           extraContext,
+          companyBackground,
           generateResume: !!documents?.resume,
           generateCoverLetter: !!documents?.coverLetter,
           confirmedQualifications,
@@ -2095,7 +2117,14 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                             value={extraContext}
                             onChange={(e) => setExtraContext(e.target.value)}
                             placeholder="Optional: add extra context — e.g. 'I recently learned Angular' or 'I have Baseline Clearance'"
-                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-emerald-500/50 transition-colors mb-4"
+                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-emerald-500/50 transition-colors mb-3"
+                          />
+
+                          <textarea
+                            value={companyBackground}
+                            onChange={(e) => setCompanyBackground(e.target.value)}
+                            placeholder="Optional: paste company background — e.g. 'Burraga Foundation is an Aboriginal non-profit building the Storylines platform for 100+ communities. They use Vercel, Supabase, and Cloudflare.'"
+                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-white/20 transition-colors mb-4"
                           />
 
                           <motion.button

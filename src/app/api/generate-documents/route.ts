@@ -5,6 +5,21 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+async function researchCompany(jobDescription: string): Promise<string> {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      tools: [{ googleSearch: {} }] as any,
+    });
+    const result = await model.generateContent(
+      `From this job description, identify the company name and research it. Return 2-3 factual sentences covering: what the company/organisation does, their key product or platform (with its actual name if known), and their mission or target audience. Be specific — use real product names and numbers if found. Job description: ${jobDescription.substring(0, 1500)}`
+    );
+    return result.response.text().trim();
+  } catch {
+    return "";
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -18,6 +33,8 @@ export async function POST(req: NextRequest) {
       previousResume,
       previousCoverLetter,
       candidateName,
+      paragraphCount,
+      companyBackground,
     } = await req.json();
 
     if (!resumeText || !jobDescription) {
@@ -35,6 +52,13 @@ export async function POST(req: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // User-supplied background takes precedence; Google Search fills the gap
+    let companyContext = "";
+    if (generateCoverLetter) {
+      const searchResult = await researchCompany(jobDescription);
+      companyContext = [companyBackground, searchResult].filter(Boolean).join("\n\n");
     }
 
     // JSON mode guarantees valid JSON output — no escaped-newline issues
@@ -95,6 +119,21 @@ IMPORTANT: Keep everything that was good, only change what the feedback requests
 # Task
 ${generateResume ? "Generate a tailored one-page resume." : ""}
 ${generateCoverLetter ? "Generate a tailored cover letter." : ""}
+
+${companyBackground ? `
+# Company Background (use this to personalise the cover letter)
+${companyBackground}
+
+Use specific details from the company background in the cover letter Body 2 paragraph.
+Reference actual company projects, values, or mission where relevant.
+` : ""}
+
+${companyContext ? `# Company Research (use this in the cover letter — do NOT mention this section heading)
+${companyContext}
+Reference specific details from the above (product names, mission, audience) in paragraph 3 of the cover letter. Never invent details not present above.` : ""}
+
+${generateResume && paragraphCount ? `# Resume Line Count (CRITICAL)
+The original resume DOCX has exactly ${paragraphCount} non-empty lines. Your rewritten resume MUST output EXACTLY ${paragraphCount} non-empty lines — no more, no less. Each line maps directly to a paragraph in the original document. Count your lines before submitting.` : ""}
 
 # Identity Rule (CRITICAL — never violate this)
 CONFIRMED QUALIFICATIONS: ${confirmedQualifications?.length > 0 ? confirmedQualifications.join(", ") : "NONE"}
@@ -158,29 +197,32 @@ ${
 # Cover Letter Rules (follow every rule strictly)
 
 ## Format
+- Header: Extract the candidate's name, email address, and phone number from the Candidate Profile above. Output them on separate lines — name first, then email, then phone. Centred or left-aligned.
+- Blank line after header
+- Today's date: write it as the literal string "19 May 2026"
+- Blank line after date
 - Greeting: Scan the JD for a named hiring manager or recruiter. If found, use "Dear [Name]," — otherwise use "Dear Hiring Manager,"
 - Blank line after salutation
 - 4 paragraphs (no bullet points)
 - Blank line before closing
 - End with: "Kind regards,\n\n${candidateName?.trim() || "[Your Name]"}"
-- MUST be 200-250 words — count carefully, do not submit outside this range
+- MUST be 200-250 words (header and date do not count toward word count) — count carefully, do not submit outside this range
 
 ## Structure
 
 Paragraph 1 — Opening (2-3 sentences):
 Do NOT open with "I am writing to express my interest in" or "I am pleased to apply for" — these are clichés. Instead open with: "I am applying for the [exact role title] at [company/agency from JD]." Then state years of experience with the most relevant technology from the JD. If the candidate holds any confirmed qualifications (clearance, citizenship etc.) that the JD requires — state them here naturally. Otherwise state Canberra-based and Australian work rights.
 
-Paragraph 2 — Challenge + evidence (5-6 sentences):
+Paragraph 2 — Challenge + evidence + skill bridge (5-6 sentences):
 Step 1: Identify ONE major technical challenge or requirement from the JD (e.g. scale, accessibility, specific platform, complex integration).
 Step 2: Write 1 sentence naming that challenge in the JD's own words.
 Step 3: Write 2-3 sentences showing how a specific project from the resume directly addressed a similar challenge — include at least 2 concrete numbers from the resume (e.g. users served, coverage %, years, site count).
-Step 4: Do NOT list every technology. Tell a story about impact, not a catalogue of skills.
+Step 4: Write 1 bridge sentence connecting a skill the candidate ALREADY HAS to something the JD requires, using a transferability pattern. Example: "My experience with Firebase means BaaS patterns like Supabase are immediately familiar to me." or "Working with REST APIs daily means GraphQL is a natural extension rather than a new paradigm." Do NOT list every technology — one precise bridge is enough.
 Do NOT mention any skill gaps or missing qualifications in this paragraph.
 
 Paragraph 3 — Why this role (3-4 sentences):
 Extract what is genuinely specific about this role or organisation from the JD — not generic praise.
-Reference specific terms from the JD: named systems, platforms, domains, or outcomes.
-Show how the candidate's background connects to those specifics — not enthusiasm, evidence.
+${companyContext ? `Use the company research provided — reference their actual product names, platforms, or mission (e.g. if they build a specific platform, name it). Connect the candidate's background to those specifics with evidence, not enthusiasm.` : `Reference specific terms from the JD: named systems, platforms, domains, or outcomes. Show how the candidate's background connects to those specifics — not enthusiasm, evidence.`}
 
 Paragraph 4 — Gap + closing (4-5 sentences):
 If there is an employment gap in the resume, explain it in 1-2 sentences using specific project details.

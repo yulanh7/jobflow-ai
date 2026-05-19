@@ -25,6 +25,18 @@ export async function POST(req: NextRequest) {
     ) {
       const result = await mammoth.extractRawText({ buffer });
       text = result.value;
+
+      // Count non-empty paragraphs in the original XML so AI can match line count exactly
+      const PizZip = (await import("pizzip")).default;
+      const zip = new PizZip(buffer);
+      const docXml = zip.files["word/document.xml"]?.asText();
+      if (docXml) {
+        const paragraphs = [...docXml.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)];
+        const nonEmptyCount = paragraphs.filter(([p]) =>
+          /<w:t[^>]*>[^<\s][^<]*<\/w:t>/.test(p)
+        ).length;
+        return NextResponse.json({ text, paragraphCount: nonEmptyCount });
+      }
     } else {
       return NextResponse.json(
         {
@@ -34,7 +46,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ text });
+    return NextResponse.json({ text, paragraphCount: null });
   } catch (error) {
     console.error("Resume parsing error:", error);
     return NextResponse.json(

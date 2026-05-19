@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
       selectedGaps,
       candidateName,
       confirmedQualifications,
+      paragraphCount,
     } = await req.json();
 
     if (
@@ -62,6 +63,9 @@ ${JSON.stringify(selectedGaps, null, 2)}
 
 # Task
 Rewrite the resume and cover letter to incorporate the selected skills.
+
+${paragraphCount ? `# Resume Line Count (CRITICAL)
+The original resume DOCX has exactly ${paragraphCount} non-empty lines. Your rewritten resume MUST output EXACTLY ${paragraphCount} non-empty lines — no more, no less. Count your lines before submitting.` : ""}
 
 # Rules for incorporating skills by category
 

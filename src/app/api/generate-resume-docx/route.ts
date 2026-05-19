@@ -1,49 +1,48 @@
 // Accepts an original .docx resume + AI-rewritten plain text.
-// Replaces text content in the original docx while preserving all XML
-// formatting (paragraph styles, run properties, fonts, spacing).
+// Replaces <w:t> text nodes in the original XML while preserving all
+// formatting tags (<w:r>, <w:rPr>, <w:pPr>, styles, fonts, spacing).
 
 import PizZip from "pizzip";
 import { NextRequest, NextResponse } from "next/server";
 
-// Escape characters that are special in XML text nodes
-function escapeXml(text: string): string {
-  return text
+function escapeXml(str: string): string {
+  return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
 
-// Extract the concatenated plain text from a single <w:p> XML string
+// Step 3: Extract combined plain text from all <w:t> nodes in one <w:p>
 function getParagraphText(paragraph: string): string {
   const parts: string[] = [];
-  const regex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
-  let match;
-  while ((match = regex.exec(paragraph)) !== null) {
-    parts.push(match[1]);
-  }
+  const re = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+  let m;
+  while ((m = re.exec(paragraph)) !== null) parts.push(m[1]);
   return parts.join("").trim();
 }
 
-// Replace all <w:t> text content in a paragraph with newText.
-// The first <w:t> gets the full new text; subsequent ones are emptied.
-// This preserves run formatting (<w:rPr>) and paragraph formatting (<w:pPr>).
+// Step 4: Replace <w:t> content in one paragraph with newText.
+// First <w:t> receives the full replacement; subsequent ones are cleared.
+// All <w:r>, <w:rPr>, <w:pPr>, and other format tags are untouched.
 function setParagraphText(paragraph: string, newText: string): string {
-  let firstReplaced = false;
+  let placed = false;
   return paragraph.replace(/<w:t([^>]*)>[^<]*<\/w:t>/g, (_, attrs) => {
-    if (!firstReplaced) {
-      firstReplaced = true;
-      // Ensure xml:space="preserve" so leading/trailing spaces are kept
-      const spaceAttr = attrs.includes("xml:space")
+    if (!placed) {
+      placed = true;
+      // Preserve xml:space="preserve" so Word keeps leading/trailing spaces
+      const finalAttrs = attrs.includes("xml:space")
         ? attrs
-        : ` xml:space="preserve"`;
-      return `<w:t${spaceAttr}>${escapeXml(newText)}</w:t>`;
+        : `${attrs} xml:space="preserve"`.trim();
+      return `<w:t ${finalAttrs}>${escapeXml(newText)}</w:t>`;
     }
+    // Keep the run wrapper intact — just empty the text node
     return `<w:t></w:t>`;
   });
 }
 
 export async function POST(req: NextRequest) {
   try {
+    // Step 1: Receive original DOCX file + AI-rewritten plain text
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const content = formData.get("content") as string | null;
@@ -56,8 +55,9 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = await file.arrayBuffer();
-    const zip = new PizZip(buffer);
 
+    // Step 2: Unzip and read word/document.xml
+    const zip = new PizZip(buffer);
     const docXmlFile = zip.files["word/document.xml"];
     if (!docXmlFile) {
       return NextResponse.json(
@@ -65,39 +65,38 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
     const docXml = docXmlFile.asText();
 
-    // New content lines — skip empty lines; they map to empty paragraphs in
-    // the original which we leave untouched as structural spacers.
-    // Strip leading dash/en-dash/em-dash from bullet lines so the docx
-    // template's own bullet style isn't doubled (e.g. "• - text" → "• text").
+    // Step 3: Build ordered list of replacement lines from content.
+    // Empty lines are skipped — they map to structurally empty paragraphs
+    // which act as spacers and are left untouched.
+    // Strip leading dash/bullet characters so template bullets aren't doubled.
     const newLines = content
       .split("\n")
       .filter((line) => line.trim() !== "")
-      .map((line) => line.replace(/^[\s]*[-–—]\s*/, "").trim());
+      .map((line) => line.replace(/^[\s]*[-–—•]\s*/, "").trim());
+
     let lineIndex = 0;
 
-    // Walk every <w:p> in the document and replace its text content
+    // Step 4: Walk every <w:p> and replace text while preserving format tags
     const updatedXml = docXml.replace(
       /<w:p[ >][\s\S]*?<\/w:p>/g,
       (paragraph) => {
         const originalText = getParagraphText(paragraph);
 
-        // Empty paragraph → keep as-is (acts as a spacer row)
+        // Empty paragraph → structural spacer, leave untouched
         if (!originalText) return paragraph;
 
-        // Ran out of new lines → leave remaining paragraphs unchanged
+        // Ran out of replacement lines → leave remainder as-is
         if (lineIndex >= newLines.length) return paragraph;
 
         return setParagraphText(paragraph, newLines[lineIndex++]);
       }
     );
 
+    // Step 5: Repack and return the updated DOCX
     zip.file("word/document.xml", updatedXml);
-
     const nodeBuffer = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
-    // NextResponse body requires a Uint8Array, not a Node Buffer
     const output = new Uint8Array(nodeBuffer);
 
     return new NextResponse(output, {
@@ -109,7 +108,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("Resume docx generation error:", error);
-
     return NextResponse.json(
       { error: "Failed to process document" },
       { status: 500 }
