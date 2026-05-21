@@ -277,6 +277,7 @@ export default function Home() {
     resume: string | null;
     coverLetter: string | null;
     changes: string[] | null;
+    resumeData: Record<string, unknown> | null;
   } | null>(null);
   const [copiedDoc, setCopiedDoc] = useState<"resume" | "coverLetter" | null>(
     null
@@ -527,7 +528,11 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append("file", resumeFile);
-      formData.append("content", documents.resume);
+      if (documents.resumeData) {
+        formData.append("resumeData", JSON.stringify(documents.resumeData));
+      } else {
+        formData.append("content", documents.resume);
+      }
 
       const res = await fetch("/api/generate-resume-docx", {
         method: "POST",
@@ -1921,14 +1926,7 @@ export default function Home() {
                               value={extraContext}
                               onChange={(e) => setExtraContext(e.target.value)}
                               placeholder="Optional: add extra context — e.g. 'I recently learned Angular' or 'I have Baseline Clearance'"
-                              className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-400 resize-none focus:outline-none focus:border-emerald-500/50 transition-colors mb-3"
-                            />
-
-                            <textarea
-                              value={companyBackground}
-                              onChange={(e) => setCompanyBackground(e.target.value)}
-                              placeholder="Optional: paste company background — e.g. 'Burraga Foundation is an Aboriginal non-profit building the Storylines platform for 100+ communities. They use Vercel, Supabase, and Cloudflare.'"
-                              className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-white/20 transition-colors mb-4"
+                              className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-400 resize-none focus:outline-none focus:border-emerald-500/50 transition-colors mb-4"
                             />
 
                             <motion.button

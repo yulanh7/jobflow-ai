@@ -76,8 +76,53 @@ export async function POST(req: NextRequest) {
               items: { type: SchemaType.STRING },
               nullable: true,
             },
+            resumeData: {
+              type: SchemaType.OBJECT,
+              nullable: true,
+              properties: {
+                name:         { type: SchemaType.STRING },
+                contact_line: { type: SchemaType.STRING },
+                summary:      { type: SchemaType.STRING },
+                skills:       { type: SchemaType.STRING },
+                experience: {
+                  type: SchemaType.ARRAY,
+                  items: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                      title:   { type: SchemaType.STRING },
+                      company: { type: SchemaType.STRING },
+                      date:    { type: SchemaType.STRING },
+                      bullets: {
+                        type: SchemaType.ARRAY,
+                        items: {
+                          type: SchemaType.OBJECT,
+                          properties: {
+                            bullet: { type: SchemaType.STRING },
+                          },
+                          required: ["bullet"],
+                        },
+                      },
+                    },
+                    required: ["title", "company", "date", "bullets"],
+                  },
+                },
+                education: {
+                  type: SchemaType.ARRAY,
+                  items: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                      degree:      { type: SchemaType.STRING },
+                      institution: { type: SchemaType.STRING },
+                      date:        { type: SchemaType.STRING },
+                    },
+                    required: ["degree", "institution", "date"],
+                  },
+                },
+              },
+              required: ["name", "contact_line", "summary", "skills", "experience", "education"],
+            },
           },
-          required: ["resume", "coverLetter", "changes"],
+          required: ["resume", "coverLetter", "changes", "resumeData"],
         },
       },
     });
@@ -158,6 +203,16 @@ ${
 After generating the resume, populate the "changes" array with 3-5 short bullet points describing what was changed from the original resume (e.g. "Tailored summary to match React/TypeScript focus in JD", "Reordered skills to prioritise Next.js and Node.js", "Strengthened bullet points with action verbs").
 
 
+## Content Integrity (CRITICAL — never violate)
+STRICTLY FORBIDDEN: Do not add any technical skills, tools, frameworks, programming languages,
+qualifications, certifications, or job experience that is NOT explicitly stated in the original resume.
+A low or zero match score between the candidate and the JD means the candidate genuinely lacks
+those skills — this is NOT permission to fabricate. Do NOT invent skills to fill gaps.
+Only reframe, emphasise, and tailor the language around what is already in the original resume.
+Adding invented content is a serious integrity violation that could get the candidate rejected or fired.
+If the JD requires skills the candidate does not have, acknowledge the gap honestly in the cover letter
+using transferable skills — never add those missing skills to the resume.
+
 ## Structure (in this exact order)
 1. Name — centred, bold
 2. Contact line — email · phone · linkedin · github, centred
@@ -188,6 +243,21 @@ elevate, optimize, keen, extensive, versatility, progressive, esteemed,
 excited by the prospect, strongly aligns, well-suited, coupled with,
 furthermore, intricate, spearheaded, adept, proficient in,
 solid foundation, strong foundation, specializing
+
+## resumeData Output (REQUIRED — output this alongside the plain-text resume field)
+Populate resumeData with the same content as the resume, split into structured fields:
+- name: candidate full name
+- contact_line: single contact line (email · phone · linkedin · github)
+- summary: 2-3 sentence summary, as a single string
+- skills: single comma-separated skills line
+- experience: array of roles in reverse chronological order, each with:
+  - title: job title only (e.g. "Software Engineer")
+  - company: "Company Name · City" (e.g. "Acme Corp · Canberra")
+  - date: date range (e.g. "Jan 2022 – Present")
+  - bullets: array of objects { "bullet": "text without leading dash or bullet character" }
+- education: array of qualifications, each with degree, institution, date
+
+The resumeData must exactly mirror the content in the resume plain-text field.
 `
     : ""
 }

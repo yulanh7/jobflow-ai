@@ -1,102 +1,79 @@
-// Accepts an original .docx resume + AI-rewritten plain text.
-// Replaces <w:t> text nodes in the original XML while preserving all
-// formatting tags (<w:r>, <w:rPr>, <w:pPr>, styles, fonts, spacing).
+// Fills resume-template.docx with AI-generated structured data using docxtemplater.
+// The template preserves all original formatting (bold, italic, tabs, indentation).
+// No XML patching — docxtemplater clones the formatted XML nodes and injects data.
 
+import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
+import fs from "fs";
+import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 
-function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+interface ExperienceEntry {
+  title: string;
+  company: string;
+  date: string;
+  bullets: { bullet?: string; text?: string }[];
 }
 
-// Step 3: Extract combined plain text from all <w:t> nodes in one <w:p>
-function getParagraphText(paragraph: string): string {
-  const parts: string[] = [];
-  const re = /<w:t[^>]*>([^<]*)<\/w:t>/g;
-  let m;
-  while ((m = re.exec(paragraph)) !== null) parts.push(m[1]);
-  return parts.join("").trim();
+interface EducationEntry {
+  degree: string;
+  institution: string;
+  date: string;
 }
 
-// Step 4: Replace <w:t> content in one paragraph with newText.
-// First <w:t> receives the full replacement; subsequent ones are cleared.
-// All <w:r>, <w:rPr>, <w:pPr>, and other format tags are untouched.
-function setParagraphText(paragraph: string, newText: string): string {
-  let placed = false;
-  return paragraph.replace(/<w:t([^>]*)>[^<]*<\/w:t>/g, (_, attrs) => {
-    if (!placed) {
-      placed = true;
-      // Preserve xml:space="preserve" so Word keeps leading/trailing spaces
-      const finalAttrs = attrs.includes("xml:space")
-        ? attrs
-        : `${attrs} xml:space="preserve"`.trim();
-      return `<w:t ${finalAttrs}>${escapeXml(newText)}</w:t>`;
-    }
-    // Keep the run wrapper intact — just empty the text node
-    return `<w:t></w:t>`;
-  });
+interface ResumeData {
+  name: string;
+  contact_line: string;
+  summary: string;
+  skills: string;
+  experience: ExperienceEntry[];
+  education: EducationEntry[];
+  // Flat fields required by the template
+  education_degree?: string;
+  education_university?: string;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // Step 1: Receive original DOCX file + AI-rewritten plain text
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    const content = formData.get("content") as string | null;
+    // file is accepted for API compatibility but not used — template is fixed
+    formData.get("file");
+    const resumeDataRaw = formData.get("resumeData") as string | null;
 
-    if (!file || !content) {
+    if (!resumeDataRaw) {
       return NextResponse.json(
-        { error: "file and content are required" },
+        { error: "resumeData is required" },
         { status: 400 }
       );
     }
 
-    const buffer = await file.arrayBuffer();
+    const resumeData: ResumeData = JSON.parse(resumeDataRaw);
 
-    // Step 2: Unzip and read word/document.xml
-    const zip = new PizZip(buffer);
-    const docXmlFile = zip.files["word/document.xml"];
-    if (!docXmlFile) {
-      return NextResponse.json(
-        { error: "Invalid docx: word/document.xml not found" },
-        { status: 400 }
-      );
-    }
-    const docXml = docXmlFile.asText();
+    // Flatten education array into the single-field placeholders the template uses
+    resumeData.education_degree = resumeData.education[0]?.degree || "";
+    resumeData.education_university = resumeData.education[0]?.institution || "";
 
-    // Step 3: Build ordered list of replacement lines from content.
-    // Empty lines are skipped — they map to structurally empty paragraphs
-    // which act as spacers and are left untouched.
-    // Strip leading dash/bullet characters so template bullets aren't doubled.
-    const newLines = content
-      .split("\n")
-      .filter((line) => line.trim() !== "")
-      .map((line) => line.replace(/^[\s]*[-–—•]\s*/, "").trim());
+    // Normalise bullet field name: Gemini emits { bullet } but the template uses { text }
+    resumeData.experience = resumeData.experience.map((exp) => ({
+      ...exp,
+      bullets: exp.bullets.map((b) => ({ text: b.bullet ?? b.text ?? "" })),
+    }));
 
-    let lineIndex = 0;
+    // Load the fixed template that preserves all original formatting
+    const templatePath = path.join(process.cwd(), "templates", "resume-template.docx");
+    const templateBuffer = fs.readFileSync(templatePath);
 
-    // Step 4: Walk every <w:p> and replace text while preserving format tags
-    const updatedXml = docXml.replace(
-      /<w:p[ >][\s\S]*?<\/w:p>/g,
-      (paragraph) => {
-        const originalText = getParagraphText(paragraph);
+    // Fill placeholders — docxtemplater clones XML nodes for loops,
+    // so bold/italic/tab-stop formatting is inherited from the template.
+    const zip = new PizZip(templateBuffer);
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+    });
 
-        // Empty paragraph → structural spacer, leave untouched
-        if (!originalText) return paragraph;
+    doc.render(resumeData);
 
-        // Ran out of replacement lines → leave remainder as-is
-        if (lineIndex >= newLines.length) return paragraph;
-
-        return setParagraphText(paragraph, newLines[lineIndex++]);
-      }
-    );
-
-    // Step 5: Repack and return the updated DOCX
-    zip.file("word/document.xml", updatedXml);
-    const nodeBuffer = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
+    const nodeBuffer = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
     const output = new Uint8Array(nodeBuffer);
 
     return new NextResponse(output, {
@@ -109,7 +86,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Resume docx generation error:", error);
     return NextResponse.json(
-      { error: "Failed to process document" },
+      { error: "Failed to generate document" },
       { status: 500 }
     );
   }
