@@ -1,12 +1,23 @@
 // Rewrites resume and cover letter incorporating selected skill gaps
 
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { SchemaType } from "@google/generative-ai";
 import { isRateLimitError } from "@/lib/utils";
+import { checkAndIncrement, checkAndIncrementGlobal, IP_LIMIT, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
+import { generateWithFallback } from "@/lib/gemini";
 import fs from "fs";
 import path from "path";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+function getIP(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return req.headers.get("x-real-ip") ?? "127.0.0.1";
+}
+
+function isStudioRequest(req: NextRequest): boolean {
+  const pw = req.headers.get("x-studio-password");
+  return !!process.env.STUDIO_PASSWORD && pw === process.env.STUDIO_PASSWORD;
+}
 
 const skillsDir = path.join(process.cwd(), ".claude/skills");
 let contentStandards = "";
@@ -42,21 +53,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // JSON mode guarantees valid JSON output
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash-lite",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: {
-            resume: { type: SchemaType.STRING },
-            coverLetter: { type: SchemaType.STRING },
+    if (isStudioRequest(req)) {
+      const result = await checkAndIncrementGlobal();
+      if (!result.allowed) {
+        return NextResponse.json(
+          {
+            error: "今日网站使用总次数已满，请明天再试。",
+            reason: "global_limit",
+            ipCount: 0,
+            globalCount: result.globalCount,
+            ipLimit: IP_LIMIT,
+            globalLimit: GLOBAL_LIMIT,
+            resetAt: getResetTimeISO(),
           },
-          required: ["resume", "coverLetter"],
-        },
-      },
-    });
+          { status: 429 }
+        );
+      }
+    } else {
+      const rateLimit = await checkAndIncrement(getIP(req));
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          {
+            error: rateLimit.reason === "global_limit"
+              ? "今日网站使用总次数已满，请明天再试。"
+              : "您今日的使用次数已达上限，请明天再试。",
+            reason: rateLimit.reason,
+            ipCount: rateLimit.ipCount,
+            globalCount: rateLimit.globalCount,
+            ipLimit: IP_LIMIT,
+            globalLimit: GLOBAL_LIMIT,
+            resetAt: getResetTimeISO(),
+          },
+          { status: 429 }
+        );
+      }
+    }
 
     const todayDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
@@ -118,8 +149,25 @@ Return ONLY valid JSON — no markdown, no explanation:
 }
 `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const responseText = await generateWithFallback(async (client) => {
+      // JSON mode guarantees valid JSON output
+      const model = client.getGenerativeModel({
+        model: "gemini-2.5-flash-lite",
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: SchemaType.OBJECT,
+            properties: {
+              resume: { type: SchemaType.STRING },
+              coverLetter: { type: SchemaType.STRING },
+            },
+            required: ["resume", "coverLetter"],
+          },
+        },
+      });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    });
 
     // Attempt 1: direct parse
     try {

@@ -1,12 +1,23 @@
 // Generates a tailored resume and/or cover letter using Gemini AI
 
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { SchemaType } from "@google/generative-ai";
 import { isRateLimitError } from "@/lib/utils";
+import { checkAndIncrement, checkAndIncrementGlobal, IP_LIMIT, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
+import { generateWithFallback } from "@/lib/gemini";
 import fs from "fs";
 import path from "path";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+function getIP(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return req.headers.get("x-real-ip") ?? "127.0.0.1";
+}
+
+function isStudioRequest(req: NextRequest): boolean {
+  const pw = req.headers.get("x-studio-password");
+  return !!process.env.STUDIO_PASSWORD && pw === process.env.STUDIO_PASSWORD;
+}
 
 const skillsDir = path.join(process.cwd(), ".claude/skills");
 let contentStandards = "";
@@ -18,14 +29,16 @@ try {
 
 async function researchCompany(jobDescription: string): Promise<string> {
   try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      tools: [{ googleSearch: {} }] as any,
+    return await generateWithFallback(async (client) => {
+      const model = client.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        tools: [{ googleSearch: {} }] as never,
+      });
+      const result = await model.generateContent(
+        `From this job description, identify the company name and research it. Return 2-3 factual sentences covering: what the company/organisation does, their key product or platform (with its actual name if known), and their mission or target audience. Be specific — use real product names and numbers if found. Job description: ${jobDescription.substring(0, 1500)}`
+      );
+      return result.response.text().trim();
     });
-    const result = await model.generateContent(
-      `From this job description, identify the company name and research it. Return 2-3 factual sentences covering: what the company/organisation does, their key product or platform (with its actual name if known), and their mission or target audience. Be specific — use real product names and numbers if found. Job description: ${jobDescription.substring(0, 1500)}`
-    );
-    return result.response.text().trim();
   } catch {
     return "";
   }
@@ -65,78 +78,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (isStudioRequest(req)) {
+      const result = await checkAndIncrementGlobal();
+      if (!result.allowed) {
+        return NextResponse.json(
+          {
+            error: "今日网站使用总次数已满，请明天再试。",
+            reason: "global_limit",
+            ipCount: 0,
+            globalCount: result.globalCount,
+            ipLimit: IP_LIMIT,
+            globalLimit: GLOBAL_LIMIT,
+            resetAt: getResetTimeISO(),
+          },
+          { status: 429 }
+        );
+      }
+    } else {
+      const rateLimit = await checkAndIncrement(getIP(req));
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          {
+            error: rateLimit.reason === "global_limit"
+              ? "今日网站使用总次数已满，请明天再试。"
+              : "您今日的使用次数已达上限，请明天再试。",
+            reason: rateLimit.reason,
+            ipCount: rateLimit.ipCount,
+            globalCount: rateLimit.globalCount,
+            ipLimit: IP_LIMIT,
+            globalLimit: GLOBAL_LIMIT,
+            resetAt: getResetTimeISO(),
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     // User-supplied background takes precedence; Google Search fills the gap
     let companyContext = "";
     if (generateCoverLetter) {
       const searchResult = await researchCompany(jobDescription);
       companyContext = [companyBackground, searchResult].filter(Boolean).join("\n\n");
     }
-
-    // JSON mode guarantees valid JSON output — no escaped-newline issues
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash-lite",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: {
-            resume: { type: SchemaType.STRING, nullable: true },
-            coverLetter: { type: SchemaType.STRING, nullable: true },
-            changes: {
-              type: SchemaType.ARRAY,
-              items: { type: SchemaType.STRING },
-              nullable: true,
-            },
-            resumeData: {
-              type: SchemaType.OBJECT,
-              nullable: true,
-              properties: {
-                name:         { type: SchemaType.STRING },
-                contact_line: { type: SchemaType.STRING },
-                summary:      { type: SchemaType.STRING },
-                skills:       { type: SchemaType.STRING },
-                experience: {
-                  type: SchemaType.ARRAY,
-                  items: {
-                    type: SchemaType.OBJECT,
-                    properties: {
-                      title:   { type: SchemaType.STRING },
-                      company: { type: SchemaType.STRING },
-                      date:    { type: SchemaType.STRING },
-                      bullets: {
-                        type: SchemaType.ARRAY,
-                        items: {
-                          type: SchemaType.OBJECT,
-                          properties: {
-                            bullet: { type: SchemaType.STRING },
-                          },
-                          required: ["bullet"],
-                        },
-                      },
-                    },
-                    required: ["title", "company", "date", "bullets"],
-                  },
-                },
-                education: {
-                  type: SchemaType.ARRAY,
-                  items: {
-                    type: SchemaType.OBJECT,
-                    properties: {
-                      degree:      { type: SchemaType.STRING },
-                      institution: { type: SchemaType.STRING },
-                      date:        { type: SchemaType.STRING },
-                    },
-                    required: ["degree", "institution", "date"],
-                  },
-                },
-              },
-              required: ["name", "contact_line", "summary", "skills", "experience", "education"],
-            },
-          },
-          required: ["resume", "coverLetter", "changes", "resumeData"],
-        },
-      },
-    });
 
     const todayDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
@@ -226,8 +209,75 @@ Return ONLY valid JSON — no markdown, no explanation:
 }
 `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const responseText = await generateWithFallback(async (client) => {
+      // JSON mode guarantees valid JSON output — no escaped-newline issues
+      const model = client.getGenerativeModel({
+        model: "gemini-2.5-flash-lite",
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: SchemaType.OBJECT,
+            properties: {
+              resume: { type: SchemaType.STRING, nullable: true },
+              coverLetter: { type: SchemaType.STRING, nullable: true },
+              changes: {
+                type: SchemaType.ARRAY,
+                items: { type: SchemaType.STRING },
+                nullable: true,
+              },
+              resumeData: {
+                type: SchemaType.OBJECT,
+                nullable: true,
+                properties: {
+                  name:         { type: SchemaType.STRING },
+                  contact_line: { type: SchemaType.STRING },
+                  summary:      { type: SchemaType.STRING },
+                  skills:       { type: SchemaType.STRING },
+                  experience: {
+                    type: SchemaType.ARRAY,
+                    items: {
+                      type: SchemaType.OBJECT,
+                      properties: {
+                        title:   { type: SchemaType.STRING },
+                        company: { type: SchemaType.STRING },
+                        date:    { type: SchemaType.STRING },
+                        bullets: {
+                          type: SchemaType.ARRAY,
+                          items: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                              bullet: { type: SchemaType.STRING },
+                            },
+                            required: ["bullet"],
+                          },
+                        },
+                      },
+                      required: ["title", "company", "date", "bullets"],
+                    },
+                  },
+                  education: {
+                    type: SchemaType.ARRAY,
+                    items: {
+                      type: SchemaType.OBJECT,
+                      properties: {
+                        degree:      { type: SchemaType.STRING },
+                        institution: { type: SchemaType.STRING },
+                        date:        { type: SchemaType.STRING },
+                      },
+                      required: ["degree", "institution", "date"],
+                    },
+                  },
+                },
+                required: ["name", "contact_line", "summary", "skills", "experience", "education"],
+              },
+            },
+            required: ["resume", "coverLetter", "changes", "resumeData"],
+          },
+        },
+      });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    });
 
     // Attempt 1: direct parse
     try {
