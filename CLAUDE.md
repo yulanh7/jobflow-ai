@@ -1,48 +1,50 @@
-# JobFlow AI – Project Rules
+# JobFlow AI
 
 ## Project Overview
-AI-powered career alignment tool built for the Canberra job market.
-Two routes: / (public) and /studio (private, password protected).
+
+AI-powered career alignment tool for the Canberra job market.
 
 ## Tech Stack
-- Next.js 15, TypeScript, Tailwind CSS, Shadcn UI
-- Gemini API (gemini-2.5-flash-lite)
-- Framer Motion for animations
-- docx + mammoth for document handling
-- pdf-parse for PDF parsing (NOT pdfjs-dist — Vercel incompatible)
+
+- Next.js (latest), TypeScript strict mode, Tailwind CSS, Shadcn UI
+- Gemini API — all AI calls go through `/api/` routes
+- Framer Motion, `docx` + `mammoth`, `pdf-parse`
+- **Never use `pdfjs-dist`** — Vercel incompatible
+
+## Commands
+
+```bash
+npm run dev
+npm run build
+npm run lint
+node merge-code.js  # bundles /src into all_code.txt
+```
 
 ## Code Standards
-- All code comments, variable names, commit messages in English
-- No Chinese comments in code
-- TypeScript strict mode
-- Prettier for formatting
 
-## Commit Convention
-- Conventional Commits: feat:, fix:, chore:, style:, refactor:
-- One commit per complete feature
-- Example: feat(api): add resume parser supporting PDF and DOCX
+- English only — no Chinese in comments, variable names, or commits
+- No `any` types
+- Named exports for components
+- All AI calls go through `/api/` routes, never directly from frontend
+- `className` for static styles (Tailwind), `style` only for dynamic values
 
-## Color System (globals.css)
-- Always use CSS variables from globals.css
-- Never hardcode colors that already exist as variables
-- --brand-red: #cc2936
-- --highlight: #ffb6b9
-- Body background: #f8fafc (light base, main overlay creates dark effect)
+## Color System
+
+Use CSS variables from `globals.css` only, never hardcode color values.
+Tailwind `zinc-*` is remapped in `globals.css` — don't assume standard values.
 
 ## API Rules
-- Never log API keys even partially
-- Always handle 429 errors from Gemini
-- All API routes must have proper error handling
-- Return consistent error format: { error: "message" }
 
-## Visual System
-- FloatingGeometry: position absolute inside main, NOT fixed
-- GlassConsole: accepts style prop, do not hardcode background
-- Custom cursor: red ring default, white dot on hover over buttons
-- Section accents: Analysis #cc2936, Skill Gap #ffb6b9, Documents #607d8b, Employer #e07c54
+- Never log API keys
+- Always handle Gemini 429 errors
+- Consistent error format: `{ error: "message" }`
 
-## Important Architecture
-- /studio route is password protected via STUDIO_PASSWORD env variable
-- Resume parsing: pdf-parse for PDF, mammoth for DOCX
-- All AI calls go through /api/ routes, never from frontend directly
-- Gemini model: gemini-2.5-flash-lite
+## Cover Letter Constraints
+
+300–350 words, opens "Dear Hiring Manager", closes "Yours sincerely".
+`BANNED_WORDS` enforced on resume and cover letter output.
+
+## Commit Convention
+
+`feat:` `fix:` `chore:` `style:` `refactor:` — one commit per feature.
+Example: `feat(api): add resume parser supporting PDF and DOCX`
