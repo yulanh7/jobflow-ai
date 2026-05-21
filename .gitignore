@@ -43,3 +43,6 @@ next-env.d.ts
 # local tools
 all_code.txt
 merge-code.js
+
+# Claude Code local config
+.claude/
