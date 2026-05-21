@@ -6,6 +6,7 @@ import { saveAs } from "file-saver";
 import { AmbientGlow } from "@/components/visual/AmbientGlow";
 import { FloatingGeometry } from "@/components/visual/FloatingGeometry";
 import { GlassConsole } from "@/components/ui/GlassConsole";
+import { UsageBar } from "@/components/ui/UsageBar";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Upload,
@@ -179,14 +180,15 @@ export default function Home() {
   >([]);
   const [feedback, setFeedback] = useState("");
   const [isRegenerating, setIsRegenerating] = useState(false);
-  const [employerQuestions, setEmployerQuestions] = useState("");
-  const [questionAnswers, setQuestionAnswers] = useState<
-    { question: string; answer: string }[] | null
-  >(null);
-  const [generatingAnswers, setGeneratingAnswers] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
   const [activeSection, setActiveSection] = useState("section-analysis");
   const [navY, setNavY] = useState(0);
+  const [usage, setUsage] = useState<{
+    ipCount: number;
+    ipLimit: number;
+    globalExhausted: boolean;
+    resetAt: string | null;
+  }>({ ipCount: 0, ipLimit: 3, globalExhausted: false, resetAt: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isScrollingRef = useRef(false);
 
@@ -251,9 +253,6 @@ export default function Home() {
     setConfirmedQualifications([]);
     setFeedback("");
     setIsRegenerating(false);
-    setEmployerQuestions("");
-    setQuestionAnswers(null);
-    setGeneratingAnswers(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -271,11 +270,13 @@ export default function Home() {
       const data = await res.json();
 
       if (!res.ok) {
+        fetchUsage();
         alert(data.error || "AI is busy, please try again in a moment.");
         return;
       }
 
       setAnalysis(data);
+      fetchUsage();
       setTimeout(() => {
         const el = document.getElementById("section-analysis");
         if (el)
@@ -312,6 +313,7 @@ export default function Home() {
         return;
       }
       setLearningPlan(data);
+      fetchUsage();
       if (data.plans?.[0]?.skill) setExpandedPlans([data.plans[0].skill]);
     } catch (err) {
       console.error("Learning plan generation failed:", err);
@@ -384,10 +386,12 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) {
+        fetchUsage();
         alert(data.error || "Failed to generate documents. Please try again.");
         return;
       }
       setDocuments(data);
+      fetchUsage();
     } catch (err) {
       console.error("Document generation failed:", err);
       alert("Check your internet connection and try again.");
@@ -470,41 +474,6 @@ export default function Home() {
     setTimeout(() => setCopiedBullet(null), 2000);
   };
 
-  const handleGenerateAnswers = async () => {
-    if (!employerQuestions.trim()) return;
-    setGeneratingAnswers(true);
-    try {
-      const res = await fetch("/api/answer-questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questions: employerQuestions,
-          resumeText,
-          jobDescription,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Failed to generate answers. Please try again.");
-        return;
-      }
-      setQuestionAnswers(data.answers);
-    } catch (err) {
-      console.error("Answer questions failed:", err);
-      alert("Check your internet connection and try again.");
-    } finally {
-      setGeneratingAnswers(false);
-    }
-  };
-
-  const handleCopyAnswers = async () => {
-    if (!questionAnswers) return;
-    const text = questionAnswers
-      .map((qa) => `Q: ${qa.question}\nA: ${qa.answer}`)
-      .join("\n\n");
-    await navigator.clipboard.writeText(text);
-  };
-
   const handleRegenerate = async () => {
     if (!feedback || isRegenerating) return;
     setIsRegenerating(true);
@@ -532,6 +501,7 @@ export default function Home() {
       }
       setDocuments(data);
       setFeedback("");
+      fetchUsage();
     } catch (err) {
       console.error("Regeneration failed:", err);
       alert("Check your connection and try again.");
@@ -550,6 +520,23 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const fetchUsage = async () => {
+    try {
+      const res = await fetch("/api/usage-status");
+      const data = await res.json();
+      setUsage({
+        ipCount: data.ipCount ?? 0,
+        ipLimit: data.ipLimit ?? 3,
+        globalExhausted: (data.globalCount ?? 0) >= (data.globalLimit ?? 20),
+        resetAt: data.resetAt ?? null,
+      });
+    } catch { /* silently ignore */ }
+  };
+
+  useEffect(() => {
+    fetchUsage();
+  }, []);
+
   useEffect(() => {
     if (analysis) setCollapsedSections([]);
   }, [analysis]);
@@ -559,7 +546,6 @@ export default function Home() {
       "section-analysis",
       "section-skillgap",
       "section-documents",
-      "section-employer",
     ];
 
     const OFFSET = window.innerHeight * 0.25;
@@ -608,7 +594,6 @@ export default function Home() {
     { id: "section-analysis", label: "Analysis", color: "#cc2936" },
     { id: "section-skillgap", label: "Skill Gap", color: "#ffb6b9" },
     { id: "section-documents", label: "Documents", color: "#607d8b" },
-    { id: "section-employer", label: "Employer Q&A", color: "#e07c54" },
   ];
 
   // ── Reusable section header ────────────────────────────────────────────────
@@ -815,6 +800,19 @@ export default function Home() {
                   score, skill gap analysis, a tailored resume and cover letter,
                   all in one place.
                 </motion.p>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.5 }}
+                  className="mt-5 max-w-[200px]"
+                >
+                  <UsageBar
+                    ipCount={usage.ipCount}
+                    ipLimit={usage.ipLimit}
+                    globalExhausted={usage.globalExhausted}
+                    resetAt={usage.resetAt}
+                  />
+                </motion.div>
               </div>
             </motion.div>
 
@@ -1894,119 +1892,6 @@ export default function Home() {
               </section>
             )}
 
-            {/* ── Section 4: Employer Questions ── */}
-            {analysis && (
-              <section id="section-employer" className="mb-4">
-                <GlassConsole
-                  style={{ borderLeft: "2px solid var(--accent-employer)" }}
-                >
-                  <SectionHeader
-                    id="section-employer"
-                    label="Employer Questions"
-                    color="#e07c54"
-                  />
-                  <AnimatePresence initial={false}>
-                    {!collapsedSections.includes("section-employer") && (
-                      <motion.div
-                        key="employer-content"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="border-t border-white/5" />
-                        <div className="grid md:grid-cols-[35%_1px_1fr] grid-cols-1">
-                          {/* Left: INPUT */}
-                          <div className="p-6">
-                            <p className="text-xs text-zinc-500 mb-4">
-                              Paste screening questions from your Seek or
-                              LinkedIn application
-                            </p>
-                            <textarea
-                              value={employerQuestions}
-                              onChange={(e) =>
-                                setEmployerQuestions(e.target.value)
-                              }
-                              placeholder={`e.g. Which of the following statements best describes your right to work in Australia?\nDo you hold Australian Security Clearance?`}
-                              className="w-full h-28 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-400 resize-none focus:outline-none focus:border-violet-500/50 transition-colors mb-4"
-                            />
-                            <motion.button
-                              whileHover={{
-                                scale: employerQuestions.trim() ? 1.01 : 1,
-                              }}
-                              whileTap={{
-                                scale: employerQuestions.trim() ? 0.98 : 1,
-                              }}
-                              onClick={handleGenerateAnswers}
-                              disabled={
-                                !employerQuestions.trim() || generatingAnswers
-                              }
-                              className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-                              style={{
-                                background:
-                                  "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
-                                color: "white",
-                                border: "none",
-                              }}
-                            >
-                              {generatingAnswers ? (
-                                <span className="flex items-center justify-center gap-2">
-                                  <Loader2 size={14} className="animate-spin" />
-                                  Generating...
-                                </span>
-                              ) : (
-                                "Generate Answers"
-                              )}
-                            </motion.button>
-                          </div>
-
-                          {/* Center divider with triangle pointer */}
-                          <div className="hidden md:block relative bg-[rgba(255,255,255,0.08)]">
-                            <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
-                          </div>
-                          {/* Right: OUTPUT */}
-                          <div className="p-6">
-                            {questionAnswers && questionAnswers.length > 0 ? (
-                              <>
-                                <div className="space-y-0">
-                                  {questionAnswers.map((qa, i) => (
-                                    <div
-                                      key={i}
-                                      className={`py-3 ${i < questionAnswers.length - 1 ? "border-b border-white/5" : ""}`}
-                                    >
-                                      <p className="text-xs text-zinc-400 mb-1">
-                                        {qa.question}
-                                      </p>
-                                      <p className="text-sm text-zinc-200 font-medium">
-                                        {qa.answer}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="flex gap-2 mt-3 pt-3 border-t border-white/5">
-                                  <button
-                                    onClick={handleCopyAnswers}
-                                    className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
-                                  >
-                                    <ClipboardCopy size={11} />
-                                    Copy All
-                                  </button>
-                                </div>
-                              </>
-                            ) : (
-                              <p className="text-zinc-400 text-xs text-center py-12">
-                                Results will appear here
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </GlassConsole>
-              </section>
-            )}
           </div>
           <footer className="text-center pt-8 pb-12 border-t border-white/[0.05] mt-8">
             <p className="text-xs text-slate-600 tracking-[0.05em]">
