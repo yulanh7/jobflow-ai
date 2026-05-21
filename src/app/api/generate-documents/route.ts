@@ -3,8 +3,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { isRateLimitError } from "@/lib/utils";
+import fs from "fs";
+import path from "path";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+const skillsDir = path.join(process.cwd(), ".claude/skills");
+let contentStandards = "";
+let candidateProfile = "";
+try {
+  contentStandards = fs.readFileSync(path.join(skillsDir, "content-standards/SKILL.md"), "utf-8");
+  candidateProfile = fs.readFileSync(path.join(skillsDir, "my-profile/SKILL.md"), "utf-8");
+} catch { /* skills not available in this environment */ }
 
 async function researchCompany(jobDescription: string): Promise<string> {
   try {
@@ -128,12 +138,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const todayDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
     const prompt = `
+# Writing Standards
+${contentStandards}
+
+# Candidate Reference Profile
+${candidateProfile}
+
 # Role
 You are an expert technical resume writer specialising in the Australian
 technology job market, particularly Canberra government and private sector roles.
 
-# Candidate Profile
+# Uploaded Resume
 ${resumeText}
 
 # Target Job Description
@@ -216,7 +234,7 @@ using transferable skills — never add those missing skills to the resume.
 
 ## Structure (in this exact order)
 1. Name — centred, bold
-2. Contact line — email · phone · linkedin · github, centred
+2. Contact line — email · phone · github · linkedin · portfolio, centred
 3. Summary — 2-3 sentences, tailored to this JD
 4. Skills — one line, technologies relevant to JD listed first
 5. Experience — reverse chronological, each role has:
@@ -248,9 +266,9 @@ solid foundation, strong foundation, specializing
 ## resumeData Output (REQUIRED — output this alongside the plain-text resume field)
 Populate resumeData with the same content as the resume, split into structured fields:
 - name: candidate full name
-- contact_line: single contact line (email · phone · linkedin · github)
+- contact_line: single contact line (email · phone · github · linkedin · portfolio)
 - summary: 2-3 sentence summary, as a single string
-- skills: single comma-separated skills line
+- skills: single skills line, items joined with " · " separator (e.g. "React · Next.js · TypeScript")
 - experience: array of roles in reverse chronological order, each with:
   - title: job title only (e.g. "Software Engineer")
   - company: "Company Name · City" (e.g. "Acme Corp · Canberra")
@@ -270,14 +288,14 @@ ${
 ## Format
 - Header: Extract the candidate's name, email address, and phone number from the Candidate Profile above. Output them on separate lines — name first, then email, then phone. Centred or left-aligned.
 - Blank line after header
-- Today's date: write it as the literal string "19 May 2026"
+- Today's date: write it as the literal string "${todayDate}"
 - Blank line after date
 - Greeting: Scan the JD for a named hiring manager or recruiter. If found, use "Dear [Name]," — otherwise use "Dear Hiring Manager,"
 - Blank line after salutation
 - 4 paragraphs (no bullet points)
 - Blank line before closing
 - End with: "Kind regards,\n\n${candidateName?.trim() || "[Your Name]"}"
-- MUST be 200-250 words (header and date do not count toward word count) — count carefully, do not submit outside this range
+- MUST be 300-350 words (header and date do not count toward word count) — count carefully, do not submit outside this range
 
 ## Structure
 
@@ -317,8 +335,8 @@ I possess the technical foundation, eager to apply my skills, eager to bring,
 this role is particularly appealing, I am eager to, possess the technical foundation,
 particularly appealing, prospect of supporting
 
-CRITICAL: Target 200-250 words. Prioritise information density — do NOT add filler sentences to reach a word count.
-If over 320: cut adjectives and filler phrases, not content.
+CRITICAL: Target 300-350 words. Prioritise information density — do NOT add filler sentences to reach a word count.
+If over 400: cut adjectives and filler phrases, not content.
 Never pad with generic enthusiasm to reach a target.
 `
     : ""

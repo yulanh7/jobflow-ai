@@ -3,8 +3,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { isRateLimitError } from "@/lib/utils";
+import fs from "fs";
+import path from "path";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+const skillsDir = path.join(process.cwd(), ".claude/skills");
+let contentStandards = "";
+let candidateProfile = "";
+try {
+  contentStandards = fs.readFileSync(path.join(skillsDir, "content-standards/SKILL.md"), "utf-8");
+  candidateProfile = fs.readFileSync(path.join(skillsDir, "my-profile/SKILL.md"), "utf-8");
+} catch { /* skills not available in this environment */ }
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,12 +58,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const todayDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
     const prompt = `
+# Writing Standards
+${contentStandards}
+
+# Candidate Reference Profile
+${candidateProfile}
+
 # Role
 You are an expert technical resume writer specialising in the Australian
 technology job market, particularly Canberra.
 
-# Candidate Profile
+# Uploaded Resume
 ${resumeText}
 
 # Target Job Description
@@ -111,12 +129,16 @@ CONFIRMED QUALIFICATIONS: ${confirmedQualifications?.length > 0 ? confirmedQuali
 # Cover Letter Rules (follow every rule strictly)
 
 ## Format
+- Header: Extract the candidate's name, email address, and phone number from the Candidate Reference Profile above. Output them on separate lines — name first, then email, then phone.
+- Blank line after header
+- Today's date: write it as the literal string "${todayDate}"
+- Blank line after date
 - Greeting: Scan the JD for a named hiring manager or recruiter. If found, use "Dear [Name]," — otherwise use "Dear Hiring Manager,"
 - Blank line after salutation
 - 4 paragraphs, no bullet points
 - Blank line before closing
 - End with: "Kind regards,\n\n${candidateName?.trim() || "[Your Name]"}"
-- Target 200-250 words. Prioritise information density — do NOT pad with filler sentences to reach a word count.
+- Target 300-350 words. Prioritise information density — do NOT pad with filler sentences to reach a word count.
 
 ## Structure
 
@@ -150,9 +172,12 @@ very compelling, particularly appeals, eager to apply,
 I am writing to express my interest, I am pleased to apply,
 available for an interview at your earliest convenience,
 proven ability, complex applications, particularly appealing,
+prospect of supporting, it is with great,
+I would be a great fit, I believe I am,
 passionate, deeply, resonates, moreover,
 I possess the technical foundation, eager to apply my skills, eager to bring,
-this role is particularly appealing, I am eager to
+this role is particularly appealing, I am eager to, possess the technical foundation,
+particularly appealing, prospect of supporting
 
 # Output
 Return ONLY valid JSON — no markdown, no explanation:

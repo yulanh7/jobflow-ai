@@ -166,10 +166,10 @@ function validateCoverLetter(text: string): ValidationResult {
     warnings.push("Missing 'Dear Hiring Manager' salutation");
   }
 
-  if (text.includes("Yours sincerely")) {
+  if (text.includes("Kind regards")) {
     passed.push("Has proper closing");
   } else {
-    warnings.push("Missing 'Yours sincerely' closing");
+    warnings.push("Missing 'Kind regards' closing");
   }
 
   return { passed, warnings };

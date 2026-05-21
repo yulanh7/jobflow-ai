@@ -4,8 +4,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { isRateLimitError } from "@/lib/utils";
+import fs from "fs";
+import path from "path";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+const skillsDir = path.join(process.cwd(), ".claude/skills");
+let contentStandards = "";
+let candidateProfile = "";
+try {
+  contentStandards = fs.readFileSync(path.join(skillsDir, "content-standards/SKILL.md"), "utf-8");
+  candidateProfile = fs.readFileSync(path.join(skillsDir, "my-profile/SKILL.md"), "utf-8");
+} catch { /* skills not available in this environment */ }
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +31,12 @@ export async function POST(req: NextRequest) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const prompt = `
+# Writing Standards
+${contentStandards}
+
+# Candidate Reference Profile
+${candidateProfile}
+
       # Role
       You are a senior technical recruiter specialising in the Canberra technology market.
 
