@@ -30,43 +30,37 @@ export async function POST(req: NextRequest) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const prompt = `
-# Writing Standards
+# Rules
 ${contentStandards}
 
-# Candidate Reference Profile
+# Candidate Profile
 ${candidateProfile}
 
-      # Role
-      You are an expert career coach helping a candidate answer employer screening questions for a job application in Australia.
+# Task
+Answer each employer screening question directly and concisely. Base answers ONLY on information in the candidate profile and uploaded resume. Keep each answer to 1-2 sentences maximum.
 
-      # Uploaded Resume
-      ${resumeText}
+# Input
 
-      # Job Description
-      ${jobDescription}
+## Uploaded Resume
+${resumeText}
 
-      # Employer Questions
-      ${questions}
+## Job Description
+${jobDescription}
 
-      # Rules
-      1. Answer each question directly and concisely
-      2. Base answers ONLY on information in the candidate profile
-      3. For right to work questions: candidate is based in Australia with valid work rights
-      4. For security clearance questions: answer honestly based on resume
-      5. Keep each answer to 1-2 sentences maximum
-      6. Use plain, direct language — no corporate jargon
-      7. Format: list each question followed immediately by the answer
-      8. Never use these words: keen, comprehensive, robust, seamlessly, leverage, ensure, facilitate
-      9. Output MUST be valid JSON:
-      {
-        "answers": [
-          {
-            "question": "original question text",
-            "answer": "concise answer"
-          }
-        ]
-      }
-    `;
+## Employer Questions
+${questions}
+
+# Output Format
+Return ONLY valid JSON — no markdown, no explanation:
+{
+  "answers": [
+    {
+      "question": "original question text",
+      "answer": "concise answer"
+    }
+  ]
+}
+`;
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
