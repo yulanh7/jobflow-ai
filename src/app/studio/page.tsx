@@ -284,8 +284,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   return (
     <>
       <main
-        className="relative min-h-screen flex flex-col items-center justify-center overflow-x-hidden font-[family-name:var(--font-geist-sans)] px-6"
-        style={{ position: "relative", zIndex: 1, background: "transparent" }}
+        className="relative z-[1] min-h-screen flex flex-col items-center justify-center overflow-x-hidden font-[family-name:var(--font-geist-sans)] px-6"
       >
         <AmbientGlow />
         <motion.div
@@ -316,11 +315,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 disabled={!password || checking}
-                className="w-full py-4 rounded-xl text-white font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{
-                  background: "#cc2936",
-                  boxShadow: "0 0 24px rgba(204, 41, 54, 0.35)",
-                }}
+                className="w-full py-4 rounded-xl text-white font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--brand-red)] shadow-[0_0_24px_rgba(204,41,54,0.35)]"
               >
                 {checking ? (
                   <span className="flex items-center justify-center gap-2">
@@ -996,12 +991,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   return (
     <>
       <main
-        style={{
-          minHeight: "100vh",
-          background:
-            "linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)",
-          position: "relative",
-        }}
+        className="min-h-screen bg-[linear-gradient(135deg,rgba(15,23,42,0.9)_0%,rgba(30,41,59,0.8)_100%)] relative"
       >
         <AmbientGlow />
         <FloatingGeometry />
@@ -1021,11 +1011,8 @@ function StudioApp({ onLock }: { onLock: () => void }) {
 
         {/* Left floating nav - desktop only */}
         <nav
-          className="hidden lg:flex fixed left-[max(1.5rem,calc(50%-42rem))] z-40 flex-col gap-4 bg-zinc-900/60 backdrop-blur-sm border border-white/5 rounded-xl px-3 py-4"
-          style={{
-            top: navY,
-            transition: "top 0.4s ease",
-          }}
+          className="hidden lg:flex fixed left-[max(1.5rem,calc(50%-42rem))] z-40 flex-col gap-4 bg-zinc-900/60 backdrop-blur-sm border border-white/5 rounded-xl px-3 py-4 [transition:top_0.4s_ease]"
+          style={{ top: navY }}
         >
           {NAV_ITEMS.filter(
             (item) => item.id === "section-analysis" || !!analysis
@@ -1070,36 +1057,14 @@ function StudioApp({ onLock }: { onLock: () => void }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div
-              style={{
-                width: "100%",
-                padding: "3rem 0 2.5rem",
-                position: "relative",
-              }}
-            >
+            <div className="w-full pt-12 pb-10 relative">
               <h1
-                style={{
-                  fontSize: "clamp(3rem, 8vw, 6rem)",
-                  fontWeight: 900,
-                  lineHeight: 1.05,
-                  margin: "0 0 0.75rem",
-                  background:
-                    "linear-gradient(135deg, #ffffff 0%, #ffb6b9 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
+                className="text-[clamp(3rem,8vw,6rem)] font-black leading-[1.05] mb-3 bg-[linear-gradient(135deg,#ffffff_0%,var(--highlight)_100%)] bg-clip-text [-webkit-text-fill-color:transparent]"
               >
                 JobFlow AI
               </h1>
               <p
-                style={{
-                  fontSize: "0.75rem",
-                  color: "#cbd5e1",
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  margin: 0,
-                }}
+                className="text-xs text-[var(--text-body)] tracking-[0.15em] uppercase m-0"
               >
                 Canberra Professional Edition // 2026
               </p>
@@ -1160,22 +1125,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                               exit={{ opacity: 0, scale: 0.95 }}
                               whileTap={{ scale: 0.98 }}
                               onClick={() => fileInputRef.current?.click()}
-                              style={{
-                                background:
-                                  "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
-                                color: "white",
-                                padding: "20px 30px",
-                                borderRadius: "15px",
-                                fontSize: "1.1rem",
-                                fontWeight: 700,
-                                border: "1px solid rgba(255, 255, 255, 0.2)",
-                                backdropFilter: "blur(10px)",
-                                boxShadow: "0 15px 35px rgba(0, 0, 0, 0.2)",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "10px",
-                              }}
+                              className="bg-[linear-gradient(135deg,rgba(255,182,185,0.9),rgba(204,41,54,0.8))] text-white py-5 px-[30px] rounded-[15px] text-[1.1rem] font-bold border border-white/20 backdrop-blur-[10px] shadow-[0_15px_35px_rgba(0,0,0,0.2)] cursor-pointer flex items-center gap-[10px]"
                             >
                               <Upload size={18} />
                               Upload Your Resume
@@ -1243,11 +1193,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                                 whileTap={{ scale: 0.98 }}
                                 onClick={handleAnalyze}
                                 disabled={!jobDescription || analyzing}
-                                className="w-full py-4 rounded-xl text-white font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                style={{
-                                  background: "#cc2936",
-                                  boxShadow: "0 0 24px rgba(204, 41, 54, 0.35)",
-                                }}
+                                className="w-full py-4 rounded-xl text-white font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--brand-red)] shadow-[0_0_24px_rgba(204,41,54,0.35)]"
                               >
                                 {analyzing ? (
                                   <span className="flex items-center justify-center gap-2">
@@ -1282,24 +1228,8 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                       </div>
 
                       {/* Center divider with triangle pointer */}
-                      <div
-                        style={{
-                          position: "relative",
-                          background: "rgba(255,255,255,0.08)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "36px",
-                            left: "0px",
-                            width: 0,
-                            height: 0,
-                            borderTop: "8px solid transparent",
-                            borderBottom: "8px solid transparent",
-                            borderLeft: "10px solid rgba(255,255,255,0.15)",
-                          }}
-                        />
+                      <div className="relative bg-[rgba(255,255,255,0.08)]">
+                        <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
                       </div>
                       {/* Right: OUTPUT */}
                       <div className="p-6">
@@ -1356,8 +1286,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                               <div className="grid grid-cols-2 gap-6 mb-8 pb-8 border-b border-white/5">
                                 <div>
                                   <h3
-                                    className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium"
-                                    style={{ color: "#cc2936" }}
+                                    className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium text-[var(--accent-analysis)]"
                                   >
                                     Strengths
                                   </h3>
@@ -1374,8 +1303,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                                         className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
                                       >
                                         <span
-                                          className="shrink-0 mt-0.5"
-                                          style={{ color: "#cc2936" }}
+                                          className="shrink-0 mt-0.5 text-[var(--accent-analysis)]"
                                         >
                                           +
                                         </span>
@@ -1386,8 +1314,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                                 </div>
                                 <div>
                                   <h3
-                                    className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium"
-                                    style={{ color: "#e07c54" }}
+                                    className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium text-[var(--accent-employer)]"
                                   >
                                     Gaps
                                   </h3>
@@ -1454,8 +1381,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                                           className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
                                         >
                                           <span
-                                            className="shrink-0 mt-0.5"
-                                            style={{ color: "#e07c54" }}
+                                            className="shrink-0 mt-0.5 text-[var(--accent-employer)]"
                                           >
                                             −
                                           </span>
@@ -1470,8 +1396,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                               <div className="mb-6">
                                 <div className="flex items-center justify-between mb-4">
                                   <h3
-                                    className="text-[10px] uppercase tracking-[0.2em] font-medium"
-                                    style={{ color: "#ffb6b9" }}
+                                    className="text-[10px] uppercase tracking-[0.2em] font-medium text-[var(--highlight)]"
                                   >
                                     Suggestions
                                   </h3>
@@ -1511,8 +1436,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                                       className="text-sm text-zinc-300 flex gap-2.5 leading-relaxed"
                                     >
                                       <span
-                                        className="shrink-0 mt-0.5"
-                                        style={{ color: "#ffb6b9" }}
+                                        className="shrink-0 mt-0.5 text-[var(--highlight)]"
                                       >
                                         →
                                       </span>
@@ -1671,12 +1595,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                                 disabled={
                                   selectedGaps.length === 0 || generatingPlan
                                 }
-                                className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-                                style={{
-                                  background: "#cc2936",
-                                  color: "white",
-                                  border: "none",
-                                }}
+                                className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 bg-[var(--brand-red)] text-white border-0"
                               >
                                 {generatingPlan ? (
                                   <span className="flex items-center justify-center gap-2">
@@ -1763,12 +1682,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                                       (!rewriteResume && !rewriteCoverLetter) ||
                                       rewritingDocs
                                     }
-                                    className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-                                    style={{
-                                      background: "#cc2936",
-                                      color: "white",
-                                      border: "none",
-                                    }}
+                                    className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 bg-[var(--brand-red)] text-white border-0"
                                   >
                                     {rewritingDocs ? (
                                       <span className="flex items-center justify-center gap-2">
@@ -1793,24 +1707,8 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                         </div>
 
                         {/* Center divider with triangle pointer */}
-                        <div
-                          style={{
-                            position: "relative",
-                            background: "rgba(255,255,255,0.08)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "36px",
-                              left: "0px",
-                              width: 0,
-                              height: 0,
-                              borderTop: "8px solid transparent",
-                              borderBottom: "8px solid transparent",
-                              borderLeft: "10px solid rgba(255,255,255,0.15)",
-                            }}
-                          />
+                        <div className="relative bg-[rgba(255,255,255,0.08)]">
+                          <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
                         </div>
                         {/* Right: OUTPUT */}
                         <div className="p-6">
@@ -2143,12 +2041,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                               (!generateResume && !generateCoverLetter) ||
                               generatingDocs
                             }
-                            className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-                            style={{
-                              background: "#cc2936",
-                              color: "white",
-                              border: "none",
-                            }}
+                            className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 bg-[var(--brand-red)] text-white border-0"
                           >
                             {generatingDocs ? (
                               <span className="flex items-center justify-center gap-2">
@@ -2197,24 +2090,8 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                         </div>
 
                         {/* Center divider with triangle pointer */}
-                        <div
-                          style={{
-                            position: "relative",
-                            background: "rgba(255,255,255,0.08)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "36px",
-                              left: "0px",
-                              width: 0,
-                              height: 0,
-                              borderTop: "8px solid transparent",
-                              borderBottom: "8px solid transparent",
-                              borderLeft: "10px solid rgba(255,255,255,0.15)",
-                            }}
-                          />
+                        <div className="relative bg-[rgba(255,255,255,0.08)]">
+                          <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
                         </div>
                         {/* Right: OUTPUT */}
                         <div className="p-6">
@@ -2601,12 +2478,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                             disabled={
                               !employerQuestions.trim() || generatingAnswers
                             }
-                            className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-                            style={{
-                              background: "#cc2936",
-                              color: "white",
-                              border: "none",
-                            }}
+                            className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 bg-[var(--brand-red)] text-white border-0"
                           >
                             {generatingAnswers ? (
                               <span className="flex items-center justify-center gap-2">
@@ -2620,24 +2492,8 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                         </div>
 
                         {/* Center divider with triangle pointer */}
-                        <div
-                          style={{
-                            position: "relative",
-                            background: "rgba(255,255,255,0.08)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "36px",
-                              left: "0px",
-                              width: 0,
-                              height: 0,
-                              borderTop: "8px solid transparent",
-                              borderBottom: "8px solid transparent",
-                              borderLeft: "10px solid rgba(255,255,255,0.15)",
-                            }}
-                          />
+                        <div className="relative bg-[rgba(255,255,255,0.08)]">
+                          <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
                         </div>
                         {/* Right: OUTPUT */}
                         <div className="p-6">
