@@ -39,12 +39,8 @@ Tailwind `zinc-*` is remapped in `globals.css` — don't assume standard values.
 - Always handle Gemini 429 errors
 - Consistent error format: `{ error: "message" }`
 
-## Cover Letter Constraints
-
-300–350 words, opens "Dear Hiring Manager", closes "Yours sincerely".
-`BANNED_WORDS` enforced on resume and cover letter output.
-
 ## Commit Convention
 
 `feat:` `fix:` `chore:` `style:` `refactor:` — one commit per feature.
 Example: `feat(api): add resume parser supporting PDF and DOCX`
+
