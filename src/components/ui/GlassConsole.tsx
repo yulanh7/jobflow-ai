@@ -21,15 +21,10 @@ export const GlassConsole = React.forwardRef<HTMLDivElement, GlassConsoleProps>(
       <div
         ref={ref}
         className={cn(
-          "relative backdrop-blur-2xl rounded-none shadow-2xl overflow-hidden lg:rounded-[1rem]",
+          "relative backdrop-blur-[20px] rounded-none shadow-2xl overflow-hidden lg:rounded-[1rem] bg-[rgba(64,78,112,0.5)] border border-[rgba(255,255,255,0.08)]",
           className
         )}
-        style={{
-          background: "rgba(64, 78, 112, 0.5)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          backdropFilter: "blur(20px)",
-          ...style,
-        }}
+        style={style}
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
