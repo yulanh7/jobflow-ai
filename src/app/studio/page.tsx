@@ -143,7 +143,7 @@ function getScoreBarColor(score: number): string {
 
 // ── Lock screen ──────────────────────────────────────────────────────────────
 
-function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+function LockScreen({ onUnlock }: { onUnlock: (password: string) => void }) {
   const [password, setPassword] = useState("");
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState(false);
@@ -160,7 +160,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       });
       const data = await res.json();
       if (data.success) {
-        onUnlock();
+        onUnlock(password);
       } else {
         setError(true);
         setPassword("");
@@ -227,7 +227,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 
 // ── Studio app ────────────────────────────────────────────────────────────────
 
-function StudioApp({ onLock }: { onLock: () => void }) {
+function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassword: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "success">(
@@ -267,11 +267,13 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   >([]);
   const [feedback, setFeedback] = useState("");
   const [isRegenerating, setIsRegenerating] = useState(false);
-  const [employerQuestions, setEmployerQuestions] = useState("");
-  const [questionAnswers, setQuestionAnswers] = useState<
-    { question: string; answer: string }[] | null
-  >(null);
-  const [generatingAnswers, setGeneratingAnswers] = useState(false);
+  const [rawQuestions, setRawQuestions] = useState("");
+  const [parsedQuestions, setParsedQuestions] = useState<string[]>([]);
+  const [draftAnswers, setDraftAnswers] = useState<string[]>([]);
+  const [polishedAnswers, setPolishedAnswers] = useState<{ question: string; answer: string }[] | null>(null);
+  const [polishing, setPolishing] = useState(false);
+  const [copiedAnswerIndex, setCopiedAnswerIndex] = useState<number | null>(null);
+  const [employerPhase, setEmployerPhase] = useState<"questions" | "drafting" | "results">("questions");
   const [rewritingDocs, setRewritingDocs] = useState(false);
   const [rewrittenDocs, setRewrittenDocs] = useState<{
     resume: string | null;
@@ -287,6 +289,21 @@ function StudioApp({ onLock }: { onLock: () => void }) {
   const [activeSection, setActiveSection] = useState("section-analysis");
   const [navY, setNavY] = useState<number>(100);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [globalCount, setGlobalCount] = useState(0);
+  const [globalLimit, setGlobalLimit] = useState(40);
+
+  const fetchGlobalUsage = async () => {
+    try {
+      const res = await fetch("/api/usage-status");
+      if (res.ok) {
+        const data = await res.json();
+        setGlobalCount(data.globalCount ?? 0);
+        setGlobalLimit(data.globalLimit ?? 40);
+      }
+    } catch { /* silently ignore */ }
+  };
+
+  useEffect(() => { fetchGlobalUsage(); }, []);
 
   function toggleSection(id: string) {
     setCollapsedSections((prev) =>
@@ -350,12 +367,20 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     setConfirmedQualifications([]);
     setFeedback("");
     setIsRegenerating(false);
-    setEmployerQuestions("");
-    setQuestionAnswers(null);
-    setGeneratingAnswers(false);
+    setRawQuestions("");
+    setParsedQuestions([]);
+    setDraftAnswers([]);
+    setPolishedAnswers(null);
+    setPolishing(false);
+    setEmployerPhase("questions");
     setRewrittenDocs(null);
     setRewritingDocs(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const studioHeaders = {
+    "Content-Type": "application/json",
+    "x-studio-password": studioPassword,
   };
 
   const handleAnalyze = async () => {
@@ -365,7 +390,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studioHeaders,
         body: JSON.stringify({ resumeText, jobDescription }),
       });
 
@@ -382,6 +407,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
       alert("Check your internet connection and try again.");
     } finally {
       setAnalyzing(false);
+      fetchGlobalUsage();
     }
   };
 
@@ -397,7 +423,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     try {
       const res = await fetch("/api/learning-plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studioHeaders,
         body: JSON.stringify({ skills: selectedGaps, jobDescription }),
       });
       const data = await res.json();
@@ -414,6 +440,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
       alert("Check your internet connection and try again.");
     } finally {
       setGeneratingPlan(false);
+      fetchGlobalUsage();
     }
   };
 
@@ -467,7 +494,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     try {
       const res = await fetch("/api/generate-documents", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studioHeaders,
         body: JSON.stringify({
           resumeText,
           jobDescription,
@@ -491,6 +518,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
       alert("Check your internet connection and try again.");
     } finally {
       setGeneratingDocs(false);
+      fetchGlobalUsage();
     }
   };
 
@@ -576,36 +604,55 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     setTimeout(() => setCopiedBullet(null), 2000);
   };
 
-  const handleGenerateAnswers = async () => {
-    if (!employerQuestions.trim()) return;
-    setGeneratingAnswers(true);
+  const handleParseQuestions = () => {
+    const lines = rawQuestions
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    setParsedQuestions(lines);
+    setDraftAnswers(lines.map(() => ""));
+    setPolishedAnswers(null);
+    setEmployerPhase("drafting");
+  };
+
+  const handlePolishAnswers = async () => {
+    const pairs = parsedQuestions.map((q, i) => ({
+      question: q,
+      draft: draftAnswers[i] ?? "",
+    }));
+    if (pairs.every((p) => !p.draft.trim())) return;
+    setPolishing(true);
     try {
-      const res = await fetch("/api/answer-questions", {
+      const res = await fetch("/api/polish-answers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questions: employerQuestions,
-          resumeText,
-          jobDescription,
-        }),
+        headers: studioHeaders,
+        body: JSON.stringify({ qaPairs: pairs }),
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to generate answers. Please try again.");
+        alert(data.error || "Failed to polish answers. Please try again.");
         return;
       }
-      setQuestionAnswers(data.answers);
+      setPolishedAnswers(data.answers);
+      setEmployerPhase("results");
     } catch (err) {
-      console.error("Answer questions failed:", err);
+      console.error("Polish answers failed:", err);
       alert("Check your internet connection and try again.");
     } finally {
-      setGeneratingAnswers(false);
+      setPolishing(false);
+      fetchGlobalUsage();
     }
   };
 
-  const handleCopyAnswers = async () => {
-    if (!questionAnswers) return;
-    const text = questionAnswers
+  const handleCopyAnswer = async (text: string, index: number) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedAnswerIndex(index);
+    setTimeout(() => setCopiedAnswerIndex(null), 2000);
+  };
+
+  const handleCopyAllAnswers = async () => {
+    if (!polishedAnswers) return;
+    const text = polishedAnswers
       .map((qa) => `Q: ${qa.question}\nA: ${qa.answer}`)
       .join("\n\n");
     await navigator.clipboard.writeText(text);
@@ -620,7 +667,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
       );
       const res = await fetch("/api/rewrite-with-skills", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studioHeaders,
         body: JSON.stringify({
           resumeText,
           jobDescription,
@@ -641,6 +688,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
       alert("Check your internet connection and try again.");
     } finally {
       setRewritingDocs(false);
+      fetchGlobalUsage();
     }
   };
 
@@ -719,7 +767,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
     try {
       const res = await fetch("/api/generate-documents", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studioHeaders,
         body: JSON.stringify({
           resumeText,
           jobDescription,
@@ -745,6 +793,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
       alert("Check your connection and try again.");
     } finally {
       setIsRegenerating(false);
+      fetchGlobalUsage();
     }
   };
 
@@ -859,7 +908,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
         <AmbientGlow />
         <FloatingGeometry />
 
-        {/* Studio label + lock button */}
+        {/* Studio label + lock button + global usage */}
         <div className="fixed top-4 left-4 z-50 flex items-center gap-3">
           <span className="text-xs text-zinc-600">Studio // Private</span>
           <button
@@ -870,6 +919,12 @@ function StudioApp({ onLock }: { onLock: () => void }) {
             <Lock size={11} />
             Lock
           </button>
+          <span className="text-xs text-zinc-700 tabular-nums">
+            <span style={{ color: globalCount >= globalLimit ? "#ef4444" : globalCount >= globalLimit - 5 ? "#f97316" : undefined }}>
+              {globalCount}
+            </span>
+            <span> / {globalLimit} API uses today</span>
+          </span>
         </div>
 
         {/* Left floating nav - desktop only */}
@@ -2177,7 +2232,7 @@ function StudioApp({ onLock }: { onLock: () => void }) {
             </section>
           )}
 
-          {/* ── Section 4: Employer Questions ── */}
+          {/* ── Section 4: Employer Q&A Polish ── */}
           {analysis && (
             <section id="section-employer" className="mb-4">
               <GlassConsole
@@ -2199,85 +2254,142 @@ function StudioApp({ onLock }: { onLock: () => void }) {
                       className="overflow-hidden"
                     >
                       <div className="border-t border-white/5" />
-                      <div className="grid grid-cols-[35%_1px_1fr]">
-                        {/* Left: INPUT */}
-                        <div className="p-6">
-                          <p className="text-xs text-zinc-500 mb-4">
-                            Paste screening questions from your Seek or LinkedIn
-                            application
+
+                      {/* Step 1: paste questions */}
+                      {employerPhase === "questions" && (
+                        <div className="p-6 max-w-xl">
+                          <p className="text-xs text-zinc-500 mb-3">
+                            Paste the employer questions (one per line) from Seek or LinkedIn
                           </p>
                           <textarea
-                            value={employerQuestions}
-                            onChange={(e) =>
-                              setEmployerQuestions(e.target.value)
-                            }
-                            placeholder={`e.g. Which of the following statements best describes your right to work in Australia?\nDo you hold Australian Security Clearance?`}
-                            className="w-full h-28 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-violet-500/50 transition-colors mb-4"
+                            value={rawQuestions}
+                            onChange={(e) => setRawQuestions(e.target.value)}
+                            placeholder={`Which of the following statements best describes your right to work in Australia?\nHow many years' experience do you have as a full stack developer?\nWhat's your expected annual base salary?`}
+                            className="w-full h-36 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-amber-500/40 transition-colors mb-4"
                           />
                           <motion.button
-                            whileHover={{
-                              scale: employerQuestions.trim() ? 1.01 : 1,
-                            }}
-                            whileTap={{
-                              scale: employerQuestions.trim() ? 0.98 : 1,
-                            }}
-                            onClick={handleGenerateAnswers}
-                            disabled={
-                              !employerQuestions.trim() || generatingAnswers
-                            }
-                            className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 bg-[var(--brand-red)] text-white border-0"
+                            whileHover={{ scale: rawQuestions.trim() ? 1.01 : 1 }}
+                            whileTap={{ scale: rawQuestions.trim() ? 0.98 : 1 }}
+                            onClick={handleParseQuestions}
+                            disabled={!rawQuestions.trim()}
+                            className="py-3 px-6 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 bg-[var(--brand-red)] text-white border-0"
                           >
-                            {generatingAnswers ? (
-                              <span className="flex items-center justify-center gap-2">
+                            Next — Add My Answers →
+                          </motion.button>
+                        </div>
+                      )}
+
+                      {/* Step 2: draft answers */}
+                      {employerPhase === "drafting" && (
+                        <div className="p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <p className="text-xs text-zinc-500">
+                              Write your answer for each question — Chinese or rough English is fine
+                            </p>
+                            <button
+                              onClick={() => setEmployerPhase("questions")}
+                              className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+                            >
+                              ← Edit questions
+                            </button>
+                          </div>
+                          <div className="space-y-4 mb-5">
+                            {parsedQuestions.map((q, i) => (
+                              <div key={i} className="space-y-1.5">
+                                <p className="text-xs text-amber-400/80 leading-relaxed">{q}</p>
+                                <input
+                                  type="text"
+                                  value={draftAnswers[i] ?? ""}
+                                  onChange={(e) => {
+                                    const next = [...draftAnswers];
+                                    next[i] = e.target.value;
+                                    setDraftAnswers(next);
+                                  }}
+                                  placeholder="Your answer (e.g. 澳洲公民 / 5 years / 130k...)"
+                                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/40 transition-colors"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={handlePolishAnswers}
+                            disabled={polishing || draftAnswers.every((d) => !d.trim())}
+                            className="py-3 px-6 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 bg-[var(--brand-red)] text-white border-0"
+                          >
+                            {polishing ? (
+                              <span className="flex items-center gap-2">
                                 <Loader2 size={14} className="animate-spin" />
-                                Generating...
+                                Polishing...
                               </span>
                             ) : (
-                              "Generate Answers"
+                              "Polish into English →"
                             )}
                           </motion.button>
                         </div>
+                      )}
 
-                        {/* Center divider with triangle pointer */}
-                        <div className="relative bg-[rgba(255,255,255,0.08)]">
-                          <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
-                        </div>
-                        {/* Right: OUTPUT */}
+                      {/* Step 3: polished results */}
+                      {employerPhase === "results" && polishedAnswers && (
                         <div className="p-6">
-                          {questionAnswers && questionAnswers.length > 0 ? (
-                            <>
-                              <div className="space-y-0">
-                                {questionAnswers.map((qa, i) => (
-                                  <div
-                                    key={i}
-                                    className={`py-3 ${i < questionAnswers.length - 1 ? "border-b border-white/5" : ""}`}
-                                  >
-                                    <p className="text-xs text-zinc-400 mb-1">
-                                      {qa.question}
-                                    </p>
-                                    <p className="text-sm text-zinc-200 font-medium">
-                                      {qa.answer}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="flex gap-2 mt-3 pt-3 border-t border-white/5">
+                          <div className="flex items-center justify-between mb-4">
+                            <p className="text-xs text-zinc-500">Polished answers — ready to copy</p>
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => setEmployerPhase("drafting")}
+                                className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+                              >
+                                ← Edit drafts
+                              </button>
+                              <button
+                                onClick={handleCopyAllAnswers}
+                                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                              >
+                                <ClipboardCopy size={11} />
+                                Copy All
+                              </button>
+                            </div>
+                          </div>
+                          <div className="space-y-0">
+                            {polishedAnswers.map((qa, i) => (
+                              <div
+                                key={i}
+                                className={`py-3 flex items-start justify-between gap-3 ${i < polishedAnswers.length - 1 ? "border-b border-white/5" : ""}`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[11px] text-zinc-500 mb-1 leading-relaxed">{qa.question}</p>
+                                  <p className="text-sm text-zinc-200 font-medium">{qa.answer}</p>
+                                </div>
                                 <button
-                                  onClick={handleCopyAnswers}
-                                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg"
+                                  onClick={() => handleCopyAnswer(qa.answer, i)}
+                                  className="shrink-0 p-1.5 hover:bg-white/10 rounded transition-colors mt-0.5"
+                                  title="Copy answer"
                                 >
-                                  <ClipboardCopy size={11} />
-                                  Copy All
+                                  {copiedAnswerIndex === i ? (
+                                    <Check size={12} className="text-green-400" />
+                                  ) : (
+                                    <ClipboardCopy size={12} className="text-zinc-600" />
+                                  )}
                                 </button>
                               </div>
-                            </>
-                          ) : (
-                            <p className="text-zinc-600 text-xs text-center py-12">
-                              Results will appear here
-                            </p>
-                          )}
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => {
+                              setEmployerPhase("questions");
+                              setRawQuestions("");
+                              setParsedQuestions([]);
+                              setDraftAnswers([]);
+                              setPolishedAnswers(null);
+                            }}
+                            className="mt-4 flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+                          >
+                            <RotateCcw size={11} />
+                            Start over
+                          </button>
                         </div>
-                      </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -2293,11 +2405,11 @@ function StudioApp({ onLock }: { onLock: () => void }) {
 // ── Page root — manages auth state ───────────────────────────────────────────
 
 export default function StudioPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [studioPassword, setStudioPassword] = useState("");
 
-  if (!isAuthenticated) {
-    return <LockScreen onUnlock={() => setIsAuthenticated(true)} />;
+  if (!studioPassword) {
+    return <LockScreen onUnlock={(pw) => setStudioPassword(pw)} />;
   }
 
-  return <StudioApp onLock={() => setIsAuthenticated(false)} />;
+  return <StudioApp studioPassword={studioPassword} onLock={() => setStudioPassword("")} />;
 }
