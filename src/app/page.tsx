@@ -772,14 +772,7 @@ export default function Home() {
 
   return (
     <>
-      <main
-        style={{
-          minHeight: "100vh",
-          background:
-            "linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)",
-          position: "relative",
-        }}
-      >
+      <main className="min-h-screen bg-[linear-gradient(135deg,rgba(15,23,42,0.9)_0%,rgba(30,41,59,0.8)_100%)] relative">
         <AmbientGlow />
         <FloatingGeometry />
 
@@ -896,79 +889,33 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <div
-                style={{
-                  width: "100%",
-                  padding: "3rem 0 2.5rem",
-                  position: "relative",
-                }}
-              >
-                <h1
-                  style={{
-                    fontSize: "clamp(3rem, 8vw, 6rem)",
-                    fontWeight: 900,
-                    lineHeight: 1.05,
-                    margin: "0 0 0.75rem",
-                    background:
-                      "linear-gradient(135deg, #ffffff 0%, #ffb6b9 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }}
-                >
+              <div className="w-full pt-12 pb-10 relative">
+                <h1 className="text-[clamp(3rem,8vw,6rem)] font-black leading-[1.05] mb-3 bg-[linear-gradient(135deg,#ffffff_0%,var(--highlight)_100%)] bg-clip-text [-webkit-text-fill-color:transparent]">
                   JobFlow AI
-                  <motion.div
-                    style={{
-                      display: "inline-flex",
-                      marginLeft: "1rem",
-                      verticalAlign: "middle",
-                      width: 48,
-                      height: 48,
-                      position: "relative",
-                    }}
-                  >
+                  <motion.div className="inline-flex ml-4 align-middle w-12 h-12 relative">
                     {/* Outer rotating ring */}
                     <motion.div
+                      className="absolute inset-0 rounded-full border-[1.5px] border-[rgba(204,41,54,0.5)] [border-top-color:var(--brand-red)]"
                       animate={{ rotate: 360 }}
                       transition={{
                         duration: 8,
                         repeat: Infinity,
                         ease: "linear",
                       }}
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        borderRadius: "50%",
-                        border: "1.5px solid rgba(204, 41, 54, 0.5)",
-                        borderTopColor: "#cc2936",
-                      }}
                     />
                     {/* Inner pulsing dot */}
                     <motion.div
+                      className="absolute inset-[30%] rounded-full bg-[var(--brand-red)]"
                       animate={{ scale: [1, 1.3, 1], opacity: [0.6, 1, 0.6] }}
                       transition={{
                         duration: 2,
                         repeat: Infinity,
                         ease: "easeInOut",
                       }}
-                      style={{
-                        position: "absolute",
-                        inset: "30%",
-                        borderRadius: "50%",
-                        background: "#cc2936",
-                      }}
                     />
                   </motion.div>
                 </h1>
-                <p
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "#cbd5e1",
-                    letterSpacing: "0.15em",
-                    textTransform: "uppercase",
-                    margin: 0,
-                  }}
-                >
+                <p className="text-xs text-[var(--text-body)] tracking-[0.15em] uppercase m-0">
                   Canberra Professional Edition //{" "}
                   <span
                     style={{
@@ -983,26 +930,12 @@ export default function Home() {
                     2026
                   </span>
                 </p>
-                <div
-                  style={{
-                    height: "1px",
-                    background:
-                      "linear-gradient(90deg, rgba(204,41,54,0.4), rgba(255,182,185,0.2), transparent)",
-                    marginTop: "1.5rem",
-                    width: "40%",
-                  }}
-                />
+                <div className="h-px bg-[linear-gradient(90deg,rgba(204,41,54,0.4),rgba(255,182,185,0.2),transparent)] mt-6 w-[40%]" />
                 <motion.p
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.3 }}
-                  style={{
-                    fontSize: "0.95rem",
-                    color: "#94a3b8",
-                    marginTop: "1.5rem",
-                    maxWidth: "480px",
-                    lineHeight: 1.7,
-                  }}
+                  className="text-[0.95rem] text-zinc-500 mt-6 max-w-[480px] leading-[1.7]"
                 >
                   Upload your resume, paste a job description — get an instant match
                   score, skill gap analysis, a tailored resume and cover letter,
@@ -1195,25 +1128,8 @@ export default function Home() {
                         </div>
 
                         {/* Center divider with triangle pointer */}
-                        <div
-                          className="hidden md:block"
-                          style={{
-                            position: "relative",
-                            background: "rgba(255,255,255,0.08)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "36px",
-                              left: "0px",
-                              width: 0,
-                              height: 0,
-                              borderTop: "8px solid transparent",
-                              borderBottom: "8px solid transparent",
-                              borderLeft: "10px solid rgba(255,255,255,0.15)",
-                            }}
-                          />
+                        <div className="hidden md:block relative bg-[rgba(255,255,255,0.08)]">
+                          <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
                         </div>
                         {/* Right: OUTPUT */}
                         <div className="p-6">
@@ -1269,10 +1185,7 @@ export default function Home() {
 
                                 <div className="grid grid-cols-2 gap-6 mb-8 pb-8 border-b border-white/5">
                                   <div>
-                                    <h3
-                                      className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium"
-                                      style={{ color: "#cc2936" }}
-                                    >
+                                    <h3 className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium text-[var(--accent-analysis)]">
                                       Strengths
                                     </h3>
                                     <motion.ul
@@ -1287,10 +1200,7 @@ export default function Home() {
                                           variants={listItem}
                                           className="text-sm text-zinc-200 flex gap-2.5 leading-relaxed"
                                         >
-                                          <span
-                                            className="shrink-0 mt-0.5"
-                                            style={{ color: "#22c55e" }}
-                                          >
+                                          <span className="shrink-0 mt-0.5 text-green-500">
                                             +
                                           </span>
                                           {item}
@@ -1299,10 +1209,7 @@ export default function Home() {
                                     </motion.ul>
                                   </div>
                                   <div>
-                                    <h3
-                                      className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium"
-                                      style={{ color: "#e07c54" }}
-                                    >
+                                    <h3 className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium text-[var(--accent-employer)]">
                                       Gaps
                                     </h3>
                                     <motion.ul
@@ -1367,10 +1274,7 @@ export default function Home() {
                                             variants={listItem}
                                             className="text-sm text-zinc-200 flex gap-2.5 leading-relaxed"
                                           >
-                                            <span
-                                              className="shrink-0 mt-0.5"
-                                              style={{ color: "#e07c54" }}
-                                            >
+                                            <span className="shrink-0 mt-0.5 text-[var(--accent-employer)]">
                                               −
                                             </span>
                                             {item}
@@ -1384,8 +1288,7 @@ export default function Home() {
                                 <div className="mb-6">
                                   <div className="flex items-center justify-between mb-4">
                                     <h3
-                                      className="text-[10px] uppercase tracking-[0.2em] font-medium"
-                                      style={{ color: "#ffb6b9" }}
+                                      className="text-[10px] uppercase tracking-[0.2em] font-medium text-[var(--highlight)]"
                                     >
                                       Suggestions
                                     </h3>
@@ -1425,8 +1328,7 @@ export default function Home() {
                                         className="text-sm text-zinc-200 flex gap-2.5 leading-relaxed"
                                       >
                                         <span
-                                          className="shrink-0 mt-0.5"
-                                          style={{ color: "#ffb6b9" }}
+                                          className="shrink-0 mt-0.5 text-[var(--highlight)]"
                                         >
                                           →
                                         </span>
@@ -1615,25 +1517,8 @@ export default function Home() {
                           </div>
 
                           {/* Center divider with triangle pointer */}
-                          <div
-                            className="hidden md:block"
-                            style={{
-                              position: "relative",
-                              background: "rgba(255,255,255,0.08)",
-                            }}
-                          >
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "36px",
-                                left: "0px",
-                                width: 0,
-                                height: 0,
-                                borderTop: "8px solid transparent",
-                                borderBottom: "8px solid transparent",
-                                borderLeft: "10px solid rgba(255,255,255,0.15)",
-                              }}
-                            />
+                          <div className="hidden md:block relative bg-[rgba(255,255,255,0.08)]">
+                            <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
                           </div>
                           {/* Right: OUTPUT */}
                           <div className="p-6">
@@ -1966,27 +1851,14 @@ export default function Home() {
                             </motion.button>
 
                             {documents?.changes && documents.changes.length > 0 && (
-                              <div style={{ marginTop: "1.5rem" }}>
-                                <p style={{
-                                  fontSize: "0.65rem",
-                                  color: "#94a3b8",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.1em",
-                                  marginBottom: "0.75rem",
-                                }}>
+                              <div className="mt-6">
+                                <p className="text-[0.65rem] text-zinc-400 uppercase tracking-[0.1em] mb-3">
                                   What changed
                                 </p>
-                                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                <ul className="list-none p-0 m-0">
                                   {documents.changes.map((change, i) => (
-                                    <li key={i} style={{
-                                      fontSize: "0.75rem",
-                                      color: "#94a3b8",
-                                      display: "flex",
-                                      gap: "0.5rem",
-                                      marginBottom: "0.5rem",
-                                      lineHeight: 1.5,
-                                    }}>
-                                      <span style={{ color: "#22c55e", flexShrink: 0 }}>✓</span>
+                                    <li key={i} className="text-xs text-zinc-400 flex gap-2 mb-2 leading-[1.5]">
+                                      <span className="text-green-500 shrink-0">✓</span>
                                       {change}
                                     </li>
                                   ))}
@@ -2033,25 +1905,8 @@ export default function Home() {
                           </div>
 
                           {/* Center divider with triangle pointer */}
-                          <div
-                            className="hidden md:block"
-                            style={{
-                              position: "relative",
-                              background: "rgba(255,255,255,0.08)",
-                            }}
-                          >
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "36px",
-                                left: "0px",
-                                width: 0,
-                                height: 0,
-                                borderTop: "8px solid transparent",
-                                borderBottom: "8px solid transparent",
-                                borderLeft: "10px solid rgba(255,255,255,0.15)",
-                              }}
-                            />
+                          <div className="hidden md:block relative bg-[rgba(255,255,255,0.08)]">
+                            <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
                           </div>
                           {/* Right: OUTPUT */}
                           <div className="p-6">
@@ -2291,25 +2146,8 @@ export default function Home() {
                           </div>
 
                           {/* Center divider with triangle pointer */}
-                          <div
-                            className="hidden md:block"
-                            style={{
-                              position: "relative",
-                              background: "rgba(255,255,255,0.08)",
-                            }}
-                          >
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "36px",
-                                left: "0px",
-                                width: 0,
-                                height: 0,
-                                borderTop: "8px solid transparent",
-                                borderBottom: "8px solid transparent",
-                                borderLeft: "10px solid rgba(255,255,255,0.15)",
-                              }}
-                            />
+                          <div className="hidden md:block relative bg-[rgba(255,255,255,0.08)]">
+                            <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
                           </div>
                           {/* Right: OUTPUT */}
                           <div className="p-6">
@@ -2354,23 +2192,14 @@ export default function Home() {
               </section>
             )}
           </div>
-          <footer style={{
-            textAlign: "center",
-            padding: "2rem 0 3rem",
-            borderTop: "1px solid rgba(255,255,255,0.05)",
-            marginTop: "2rem",
-          }}>
-            <p style={{
-              fontSize: "0.75rem",
-              color: "#475569",
-              letterSpacing: "0.05em",
-            }}>
+          <footer className="text-center pt-8 pb-12 border-t border-white/[0.05] mt-8">
+            <p className="text-xs text-slate-600 tracking-[0.05em]">
               Built by{" "}
               <a
                 href="https://github.com/yulanh7"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: "#64748b", textDecoration: "underline" }}
+                className="text-slate-500 underline"
               >
                 Yulan
               </a>
@@ -2379,7 +2208,7 @@ export default function Home() {
                 href="https://github.com/yulanh7/jobflow-ai"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: "#64748b", textDecoration: "underline" }}
+                className="text-slate-500 underline"
               >
                 View Source
               </a>
