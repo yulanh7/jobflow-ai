@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         "Content-Disposition": 'attachment; filename="resume-tailored.docx"',
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Resume docx generation error:", error);
     return NextResponse.json(
       { error: "Failed to generate document" },

@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { isRateLimitError } from "@/lib/utils";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -376,10 +377,10 @@ Return ONLY valid JSON — no markdown, no explanation:
       { error: "AI returned an invalid format. Please try again." },
       { status: 500 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Document generation error:", error);
 
-    if (error.status === 429 || error.message?.includes("429")) {
+    if (isRateLimitError(error)) {
       return NextResponse.json(
         {
           error:

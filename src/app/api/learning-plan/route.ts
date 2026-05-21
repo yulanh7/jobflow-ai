@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { isRateLimitError } from "@/lib/utils";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -95,10 +96,10 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Learning plan generation error:", error);
 
-    if (error.status === 429 || error.message?.includes("429")) {
+    if (isRateLimitError(error)) {
       return NextResponse.json(
         { error: "API rate limit exceeded. Please wait a minute before retrying." },
         { status: 429 }
