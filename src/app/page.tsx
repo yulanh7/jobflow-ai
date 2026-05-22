@@ -6,7 +6,6 @@ import { saveAs } from "file-saver";
 import { AmbientGlow } from "@/components/visual/AmbientGlow";
 import { FloatingGeometry } from "@/components/visual/FloatingGeometry";
 import { GlassConsole } from "@/components/ui/GlassConsole";
-import { UsageBar } from "@/components/ui/UsageBar";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Upload,
@@ -21,26 +20,6 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-interface SkillGap {
-  skill: string;
-  reason: string;
-  category: "interview_ready" | "quick_win" | "long_term";
-  timeEstimate: string;
-  interviewTip: string;
-  quickWinPlan?: string;
-  longTermPartA?: string;
-  longTermPartB?: string;
-}
-
-interface AnalysisResult {
-  score: number;
-  summary: string;
-  strengths: string[];
-  gaps: string[];
-  suggestions: string[];
-  skillGaps?: SkillGap[];
-}
-
 interface LearningResource {
   type: "video" | "docs" | "book" | "course" | "article";
   title: string;
@@ -54,17 +33,34 @@ interface LearningStep {
   aiPrompt: string;
 }
 
-interface SkillPlan {
+interface SkillGap {
   skill: string;
-  totalTime: string;
-  steps: LearningStep[];
-  demoProject: string;
-  resumeBullet: string;
+  reason: string;
+  category: "interview_ready" | "quick_win" | "long_term";
+  timeEstimate: string;
+  interviewTip: string;
+  quickWinPlan?: string;
+  longTermPartA?: string;
+  longTermPartB?: string;
+  steps?: LearningStep[];
+  demoProject?: string;
+  resumeBullet?: string;
 }
 
-interface LearningPlanResult {
-  plans: SkillPlan[];
+interface AnalysisResult {
+  score: number;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  suggestions: string[];
+  skillGaps?: SkillGap[];
 }
+
+const CATEGORY_ORDER: Record<SkillGap["category"], number> = {
+  interview_ready: 0,
+  quick_win: 1,
+  long_term: 2,
+};
 
 const RESOURCE_EMOJI: Record<string, string> = {
   video: "🎬",
@@ -153,10 +149,7 @@ export default function Home() {
   const [analyzing, setAnalyzing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedGaps, setSelectedGaps] = useState<string[]>([]);
-  const [learningPlan, setLearningPlan] = useState<LearningPlanResult | null>(
-    null
-  );
-  const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [rewritingSkills, setRewritingSkills] = useState(false);
   const [copiedBullet, setCopiedBullet] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
   const [expandedPlans, setExpandedPlans] = useState<string[]>([]);
@@ -184,11 +177,11 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState("section-analysis");
   const [navY, setNavY] = useState(0);
   const [usage, setUsage] = useState<{
-    ipCount: number;
-    ipLimit: number;
+    analyze: number;
+    documents: number;
     globalExhausted: boolean;
     resetAt: string | null;
-  }>({ ipCount: 0, ipLimit: 3, globalExhausted: false, resetAt: null });
+  }>({ analyze: 0, documents: 0, globalExhausted: false, resetAt: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isScrollingRef = useRef(false);
 
@@ -240,8 +233,7 @@ export default function Home() {
     setJobDescription("");
     setAnalysis(null);
     setSelectedGaps([]);
-    setLearningPlan(null);
-    setGeneratingPlan(false);
+    setRewritingSkills(false);
     setExpandedPlans([]);
     setExtraContext("");
     setCompanyBackground("");
@@ -296,69 +288,41 @@ export default function Home() {
     );
   };
 
-  const handleGeneratePlan = async () => {
-    if (selectedGaps.length === 0) return;
-    setGeneratingPlan(true);
+  const handleRewriteWithSkills = async () => {
+    if (selectedGaps.length === 0 || !resumeText || !jobDescription) return;
+    setRewritingSkills(true);
     try {
-      const res = await fetch("/api/learning-plan", {
+      const gaps = analysis?.skillGaps?.filter((g) =>
+        selectedGaps.includes(g.skill)
+      ) ?? [];
+      const res = await fetch("/api/rewrite-with-skills", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skills: selectedGaps, jobDescription }),
+        body: JSON.stringify({
+          resumeText,
+          jobDescription,
+          selectedGaps: gaps,
+          confirmedQualifications,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(
-          data.error || "Failed to generate learning plan. Please try again."
-        );
+        fetchUsage();
+        alert(data.error || "Failed to rewrite. Please try again.");
         return;
       }
-      setLearningPlan(data);
+      setDocuments({ resume: data.resume, coverLetter: data.coverLetter, changes: null, resumeData: null });
       fetchUsage();
-      if (data.plans?.[0]?.skill) setExpandedPlans([data.plans[0].skill]);
+      setTimeout(() => {
+        const el = document.getElementById("section-documents");
+        if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: "smooth" });
+      }, 300);
     } catch (err) {
-      console.error("Learning plan generation failed:", err);
+      console.error("Rewrite with skills failed:", err);
       alert("Check your internet connection and try again.");
     } finally {
-      setGeneratingPlan(false);
+      setRewritingSkills(false);
     }
-  };
-
-  const handleDownloadPlan = () => {
-    if (!learningPlan) return;
-
-    const lines: string[] = [];
-    lines.push("# Skill Gap Learning Plan");
-    lines.push(
-      `Generated by JobFlow AI — ${new Date().toLocaleDateString("en-AU")}`
-    );
-    lines.push("");
-
-    learningPlan.plans.forEach((plan) => {
-      lines.push(`## ${plan.skill}`);
-      lines.push(`**Estimated time:** ${plan.totalTime}`);
-      lines.push("");
-      lines.push("### Study Steps");
-      plan.steps.forEach((step) => {
-        lines.push(`- **${step.day}:** ${step.task}`);
-      });
-      lines.push("");
-      lines.push("### Demo Project");
-      lines.push(plan.demoProject);
-      lines.push("");
-      lines.push("### Resume Bullet");
-      lines.push(`> ${plan.resumeBullet}`);
-      lines.push("");
-      lines.push("---");
-      lines.push("");
-    });
-
-    const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "learning-plan.md";
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const handleCopyPrompt = async (prompt: string, key: string) => {
@@ -525,9 +489,9 @@ export default function Home() {
       const res = await fetch("/api/usage-status");
       const data = await res.json();
       setUsage({
-        ipCount: data.ipCount ?? 0,
-        ipLimit: data.ipLimit ?? 3,
-        globalExhausted: (data.globalCount ?? 0) >= (data.globalLimit ?? 20),
+        analyze: data.analyze ?? 0,
+        documents: data.documents ?? 0,
+        globalExhausted: (data.globalCount ?? 0) >= (data.globalLimit ?? 40),
         resetAt: data.resetAt ?? null,
       });
     } catch { /* silently ignore */ }
@@ -595,6 +559,55 @@ export default function Home() {
     { id: "section-skillgap", label: "Skill Gap", color: "#ffb6b9" },
     { id: "section-documents", label: "Documents", color: "#607d8b" },
   ];
+
+  // ── Usage hint helpers ─────────────────────────────────────────────────────
+
+  function fmtResetTime(iso: string) {
+    return new Date(iso).toLocaleTimeString("en-AU", {
+      timeZone: "Australia/Sydney",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+
+  function fmtResetLabel() {
+    if (!usage.resetAt) return "tomorrow";
+    const now = new Date();
+    const todayAEST = now.toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
+    const resetAEST = new Date(usage.resetAt).toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
+    const day = todayAEST === resetAEST ? "today" : "tomorrow";
+    return `${day} at ${fmtResetTime(usage.resetAt)} AEST`;
+  }
+
+  function UsageHint({ feature, limit }: { feature: "analyze" | "documents"; limit: number }) {
+    const count = usage[feature];
+    const remaining = Math.max(0, limit - count);
+    const label = feature === "analyze" ? "analysis" : "document generation";
+    const labelPlural = feature === "analyze" ? "analyses" : "document generations";
+
+    if (usage.globalExhausted) {
+      return (
+        <p className="text-xs text-red-400 text-center mt-2">
+          This site has reached today&apos;s usage limit · Try again {fmtResetLabel()}
+        </p>
+      );
+    }
+    if (remaining === 0) {
+      return (
+        <p className="text-xs text-red-400 text-center mt-2">
+          Daily limit reached · Resets {fmtResetLabel()}
+        </p>
+      );
+    }
+    return (
+      <p className="text-xs text-zinc-500 text-center mt-2">
+        {remaining === limit
+          ? `${limit} free ${labelPlural} per day`
+          : `${remaining} ${remaining === 1 ? label : labelPlural} remaining today`}
+      </p>
+    );
+  }
 
   // ── Reusable section header ────────────────────────────────────────────────
 
@@ -800,19 +813,6 @@ export default function Home() {
                   score, skill gap analysis, a tailored resume and cover letter,
                   all in one place.
                 </motion.p>
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.5 }}
-                  className="mt-5 max-w-[200px]"
-                >
-                  <UsageBar
-                    ipCount={usage.ipCount}
-                    ipLimit={usage.ipLimit}
-                    globalExhausted={usage.globalExhausted}
-                    resetAt={usage.resetAt}
-                  />
-                </motion.div>
               </div>
             </motion.div>
 
@@ -850,50 +850,53 @@ export default function Home() {
 
                           <AnimatePresence>
                             {status === "idle" && (
-                              <motion.button
-                                key="idle-btn"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{
-                                  opacity: 1,
-                                  y: 0,
-                                  scale: [1, 1.03, 1],
-                                }}
-                                transition={{
-                                  opacity: { duration: 0.3 },
-                                  y: { duration: 0.3 },
-                                  scale: {
-                                    duration: 2,
-                                    repeat: Infinity,
-                                    ease: "easeInOut",
-                                  },
-                                }}
-                                exit={{
-                                  opacity: 0,
-                                  scale: 0.95,
-                                  position: "absolute",
-                                }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => fileInputRef.current?.click()}
-                                style={{
-                                  background:
-                                    "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
-                                  color: "white",
-                                  padding: "20px 30px",
-                                  borderRadius: "15px",
-                                  fontSize: "1.1rem",
-                                  fontWeight: 700,
-                                  border: "1px solid rgba(255, 255, 255, 0.2)",
-                                  backdropFilter: "blur(10px)",
-                                  boxShadow: "0 15px 35px rgba(0, 0, 0, 0.2)",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "10px",
-                                }}
-                              >
-                                <Upload size={18} />
-                                Upload Your Resume
-                              </motion.button>
+                              <>
+                                <motion.button
+                                  key="idle-btn"
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{
+                                    opacity: 1,
+                                    y: 0,
+                                    scale: [1, 1.03, 1],
+                                  }}
+                                  transition={{
+                                    opacity: { duration: 0.3 },
+                                    y: { duration: 0.3 },
+                                    scale: {
+                                      duration: 2,
+                                      repeat: Infinity,
+                                      ease: "easeInOut",
+                                    },
+                                  }}
+                                  exit={{
+                                    opacity: 0,
+                                    scale: 0.95,
+                                    position: "absolute",
+                                  }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => fileInputRef.current?.click()}
+                                  style={{
+                                    background:
+                                      "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
+                                    color: "white",
+                                    padding: "20px 30px",
+                                    borderRadius: "15px",
+                                    fontSize: "1.1rem",
+                                    fontWeight: 700,
+                                    border: "1px solid rgba(255, 255, 255, 0.2)",
+                                    backdropFilter: "blur(10px)",
+                                    boxShadow: "0 15px 35px rgba(0, 0, 0, 0.2)",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                  }}
+                                >
+                                  <Upload size={18} />
+                                  Upload Your Resume
+                                </motion.button>
+                                <UsageHint feature="analyze" limit={2} />
+                              </>
                             )}
 
                             {status === "uploading" && (
@@ -956,7 +959,7 @@ export default function Home() {
                                   whileHover={{ scale: 1.02 }}
                                   whileTap={{ scale: 0.98 }}
                                   onClick={handleAnalyze}
-                                  disabled={!jobDescription || analyzing}
+                                  disabled={!jobDescription || analyzing || usage.analyze >= 2 || usage.globalExhausted}
                                   className="w-full py-4 rounded-xl text-white font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                   style={{
                                     background:
@@ -979,6 +982,7 @@ export default function Home() {
                                     "Start AI Alignment"
                                   )}
                                 </motion.button>
+                                <UsageHint feature="analyze" limit={2} />
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -1262,37 +1266,49 @@ export default function Home() {
                         className="overflow-hidden"
                       >
                         <div className="border-t border-white/5" />
-                        <div className="grid md:grid-cols-[35%_1px_1fr] grid-cols-1">
-                          {/* Left: INPUT */}
-                          <div className="p-6">
-                            {(analysis.skillGaps?.filter(
-                              (g) => !isQualificationGap(g.skill)
-                            ).length ?? 0) > 0 ? (
-                              <>
-                                <p className="text-xs text-zinc-500 mb-4">
-                                  Select the skills you want to learn — get a
-                                  personalised study plan
+                        <div className="p-6">
+                          {(analysis.skillGaps?.filter(
+                            (g) => !isQualificationGap(g.skill)
+                          ).length ?? 0) > 0 ? (
+                            <>
+                              <div className="flex items-center justify-between mb-4">
+                                <p className="text-xs text-zinc-500">
+                                  Tick skills to incorporate into a rewritten resume &amp; cover letter
                                 </p>
-                                <motion.ul
-                                  variants={staggerListVeryLate}
-                                  initial="hidden"
-                                  animate="visible"
-                                  className="divide-y divide-white/5 mb-4"
-                                >
-                                  {analysis
-                                    .skillGaps!.filter(
-                                      (g) => !isQualificationGap(g.skill)
-                                    )
-                                    .map((gap, i) => {
-                                      const checked = selectedGaps.includes(
-                                        gap.skill
-                                      );
-                                      return (
-                                        <motion.li
-                                          key={i}
-                                          variants={skillGapCard}
-                                          className="flex items-start gap-3 py-3"
-                                        >
+                                {selectedGaps.length > 0 && (
+                                  <span className="text-xs text-zinc-400 shrink-0 ml-4">
+                                    {selectedGaps.length} selected
+                                  </span>
+                                )}
+                              </div>
+                              <motion.div
+                                variants={staggerListVeryLate}
+                                initial="hidden"
+                                animate="visible"
+                                className="space-y-3"
+                              >
+                                {[...analysis.skillGaps!.filter(
+                                  (g) => !isQualificationGap(g.skill)
+                                )]
+                                  .sort(
+                                    (a, b) =>
+                                      CATEGORY_ORDER[a.category] -
+                                      CATEGORY_ORDER[b.category]
+                                  )
+                                  .map((gap, i) => {
+                                    const checked = selectedGaps.includes(gap.skill);
+                                    const isExpanded = expandedPlans.includes(gap.skill);
+                                    return (
+                                      <motion.div
+                                        key={gap.skill}
+                                        variants={skillGapCard}
+                                        className={`border rounded-xl transition-colors ${
+                                          checked
+                                            ? "border-indigo-500/30 bg-indigo-500/5"
+                                            : "border-white/5 bg-white/[0.02]"
+                                        }`}
+                                      >
+                                        <div className="flex items-start gap-3 p-4">
                                           <button
                                             role="checkbox"
                                             aria-checked={checked}
@@ -1316,163 +1332,82 @@ export default function Home() {
                                               <span className="text-sm text-zinc-200 font-medium">
                                                 {gap.skill}
                                               </span>
+                                              <span
+                                                className={`text-[10px] border rounded px-1.5 py-0.5 ${
+                                                  gap.category === "interview_ready"
+                                                    ? "text-sky-400 border-sky-400/30"
+                                                    : gap.category === "quick_win"
+                                                    ? "text-emerald-400 border-emerald-400/30"
+                                                    : "text-rose-400 border-rose-400/30"
+                                                }`}
+                                              >
+                                                {gap.category === "interview_ready"
+                                                  ? "Interview ready"
+                                                  : gap.category === "quick_win"
+                                                  ? "Quick win"
+                                                  : "Long term"}
+                                              </span>
                                               <span className="text-xs text-amber-400/70">
                                                 {gap.timeEstimate}
                                               </span>
-                                              {gap.category && (
-                                                <span
-                                                  className={`text-[10px] border rounded px-1.5 py-0.5 ${
-                                                    gap.category ===
-                                                    "interview_ready"
-                                                      ? "text-sky-400 border-sky-400/30"
-                                                      : gap.category ===
-                                                          "quick_win"
-                                                        ? "text-emerald-400 border-emerald-400/30"
-                                                        : "text-rose-400 border-rose-400/30"
-                                                  }`}
-                                                >
-                                                  {gap.category ===
-                                                  "interview_ready"
-                                                    ? "Interview ready"
-                                                    : gap.category ===
-                                                        "quick_win"
-                                                      ? "Quick win"
-                                                      : "Long term"}
-                                                </span>
-                                              )}
                                             </div>
                                             <p className="text-xs text-zinc-400 leading-relaxed">
                                               {gap.reason}
                                             </p>
                                           </div>
-                                        </motion.li>
-                                      );
-                                    })}
-                                </motion.ul>
-                                <motion.button
-                                  whileHover={{
-                                    scale: selectedGaps.length > 0 ? 1.01 : 1,
-                                  }}
-                                  whileTap={{
-                                    scale: selectedGaps.length > 0 ? 0.98 : 1,
-                                  }}
-                                  onClick={handleGeneratePlan}
-                                  disabled={
-                                    selectedGaps.length === 0 || generatingPlan
-                                  }
-                                  className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-                                  style={{
-                                    background:
-                                      "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
-                                    color: "white",
-                                    border: "none",
-                                  }}
-                                >
-                                  {generatingPlan ? (
-                                    <span className="flex items-center justify-center gap-2">
-                                      <Loader2
-                                        size={14}
-                                        className="animate-spin"
-                                      />
-                                      Generating...
-                                    </span>
-                                  ) : (
-                                    "Generate Learning Plan"
-                                  )}
-                                </motion.button>
-                              </>
-                            ) : (
-                              <p className="text-zinc-400 text-xs">
-                                No skill gaps identified
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Center divider with triangle pointer */}
-                          <div className="hidden md:block relative bg-[rgba(255,255,255,0.08)]">
-                            <div className="absolute top-9 left-0 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[10px] border-l-[rgba(255,255,255,0.15)]" />
-                          </div>
-                          {/* Right: OUTPUT */}
-                          <div className="p-6">
-                            {learningPlan ? (
-                              <div className="space-y-4">
-                                {learningPlan.plans.map((plan, i) => {
-                                  const isExpanded = expandedPlans.includes(
-                                    plan.skill
-                                  );
-                                  return (
-                                    <div
-                                      key={plan.skill}
-                                      className="border border-white/5 rounded-xl p-4"
-                                    >
-                                      <div
-                                        onClick={() => togglePlan(plan.skill)}
-                                        className="flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors rounded-lg px-2 -mx-2 py-1 -my-1"
-                                      >
-                                        <div className="flex items-baseline gap-3">
-                                          <span className="text-sm font-bold text-amber-400">
-                                            {plan.skill}
-                                          </span>
-                                          <span className="text-xs text-zinc-500">
-                                            {plan.totalTime}
-                                          </span>
+                                          {gap.steps && gap.steps.length > 0 && (
+                                            <button
+                                              onClick={() => togglePlan(gap.skill)}
+                                              className="shrink-0 p-1 hover:bg-white/10 rounded transition-colors"
+                                              title={isExpanded ? "Collapse plan" : "View learning plan"}
+                                            >
+                                              {isExpanded ? (
+                                                <ChevronUp size={14} className="text-zinc-500" />
+                                              ) : (
+                                                <ChevronDown size={14} className="text-zinc-500" />
+                                              )}
+                                            </button>
+                                          )}
                                         </div>
-                                        {isExpanded ? (
-                                          <ChevronUp
-                                            size={14}
-                                            className="text-zinc-500 shrink-0"
-                                          />
-                                        ) : (
-                                          <ChevronDown
-                                            size={14}
-                                            className="text-zinc-500 shrink-0"
-                                          />
-                                        )}
-                                      </div>
-                                      <AnimatePresence initial={false}>
-                                        {isExpanded && (
-                                          <motion.div
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{
-                                              height: "auto",
-                                              opacity: 1,
-                                            }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="overflow-hidden"
-                                          >
-                                            <div className="pt-3">
-                                              <ul className="mb-3">
-                                                {plan.steps.map((step, j) => (
-                                                  <li
-                                                    key={j}
-                                                    className={`text-xs py-3 ${j < plan.steps.length - 1 ? "border-b border-white/5" : ""}`}
-                                                  >
-                                                    <div className="flex gap-2 mb-1.5">
-                                                      <span className="text-zinc-300 shrink-0">
-                                                        {step.day}
-                                                      </span>
-                                                      <span className="text-zinc-200">
-                                                        {step.task}
-                                                      </span>
-                                                    </div>
-                                                    {step.resources?.length >
-                                                      0 && (
-                                                      <ul className="ml-4 space-y-1 mb-1.5">
-                                                        {step.resources.map(
-                                                          (res, k) => (
+                                        <AnimatePresence initial={false}>
+                                          {isExpanded && gap.steps && (
+                                            <motion.div
+                                              initial={{ height: 0, opacity: 0 }}
+                                              animate={{ height: "auto", opacity: 1 }}
+                                              exit={{ height: 0, opacity: 0 }}
+                                              transition={{ duration: 0.2 }}
+                                              className="overflow-hidden"
+                                            >
+                                              <div className="px-4 pb-4 border-t border-white/5 pt-3 ml-7">
+                                                <ul className="mb-3">
+                                                  {gap.steps.map((step, j) => (
+                                                    <li
+                                                      key={j}
+                                                      className={`text-xs py-3 ${
+                                                        j < gap.steps!.length - 1
+                                                          ? "border-b border-white/5"
+                                                          : ""
+                                                      }`}
+                                                    >
+                                                      <div className="flex gap-2 mb-1.5">
+                                                        <span className="text-zinc-300 shrink-0">
+                                                          {step.day}
+                                                        </span>
+                                                        <span className="text-zinc-200">
+                                                          {step.task}
+                                                        </span>
+                                                      </div>
+                                                      {step.resources?.length > 0 && (
+                                                        <ul className="ml-4 space-y-1 mb-1.5">
+                                                          {step.resources.map((res, k) => (
                                                             <li
                                                               key={k}
                                                               className="flex items-center gap-1.5 text-zinc-400"
                                                             >
                                                               <span>
-                                                                {RESOURCE_EMOJI[
-                                                                  res.type
-                                                                ] ?? "🔗"}
+                                                                {RESOURCE_EMOJI[res.type] ?? "🔗"}
                                                               </span>
-                                                              {res.url?.startsWith(
-                                                                "http"
-                                                              ) ? (
+                                                              {res.url?.startsWith("http") ? (
                                                                 <a
                                                                   href={res.url}
                                                                   target="_blank"
@@ -1484,123 +1419,124 @@ export default function Home() {
                                                               ) : (
                                                                 <span>
                                                                   {res.title}
-                                                                  {res.url &&
-                                                                    res.url !==
-                                                                      res.title && (
-                                                                      <span className="text-zinc-400 ml-1">
-                                                                        (
-                                                                        {
-                                                                          res.url
-                                                                        }
-                                                                        )
-                                                                      </span>
-                                                                    )}
+                                                                  {res.url && res.url !== res.title && (
+                                                                    <span className="text-zinc-500 ml-1">
+                                                                      ({res.url})
+                                                                    </span>
+                                                                  )}
                                                                 </span>
                                                               )}
                                                             </li>
-                                                          )
-                                                        )}
-                                                      </ul>
-                                                    )}
-                                                    {step.aiPrompt && (
-                                                      <div className="ml-4 flex items-start gap-2">
-                                                        <div className="flex-1">
-                                                          <p className="text-[10px] text-indigo-400 mb-0.5">
-                                                            🤖 AI Learning
-                                                            Prompt
-                                                          </p>
-                                                          <p className="text-zinc-400 italic leading-relaxed">
-                                                            {step.aiPrompt}
-                                                          </p>
+                                                          ))}
+                                                        </ul>
+                                                      )}
+                                                      {step.aiPrompt && (
+                                                        <div className="ml-4 flex items-start gap-2">
+                                                          <div className="flex-1">
+                                                            <p className="text-[10px] text-indigo-400 mb-0.5">
+                                                              🤖 AI Learning Prompt
+                                                            </p>
+                                                            <p className="text-zinc-400 italic leading-relaxed">
+                                                              {step.aiPrompt}
+                                                            </p>
+                                                          </div>
+                                                          <button
+                                                            onClick={() =>
+                                                              handleCopyPrompt(
+                                                                step.aiPrompt,
+                                                                `${i}-${j}`
+                                                              )
+                                                            }
+                                                            title="Copy AI prompt"
+                                                            className="shrink-0 p-1 hover:bg-white/10 rounded transition-colors mt-3.5"
+                                                          >
+                                                            {copiedPrompt === `${i}-${j}` ? (
+                                                              <Check size={10} className="text-green-400" />
+                                                            ) : (
+                                                              <ClipboardCopy size={10} className="text-zinc-600" />
+                                                            )}
+                                                          </button>
                                                         </div>
-                                                        <button
-                                                          onClick={() =>
-                                                            handleCopyPrompt(
-                                                              step.aiPrompt,
-                                                              `${i}-${j}`
-                                                            )
-                                                          }
-                                                          title="Copy AI prompt"
-                                                          className="shrink-0 p-1 hover:bg-white/10 rounded transition-colors mt-3.5"
-                                                        >
-                                                          {copiedPrompt ===
-                                                          `${i}-${j}` ? (
-                                                            <Check
-                                                              size={10}
-                                                              className="text-green-400"
-                                                            />
-                                                          ) : (
-                                                            <ClipboardCopy
-                                                              size={10}
-                                                              className="text-zinc-600"
-                                                            />
-                                                          )}
-                                                        </button>
-                                                      </div>
-                                                    )}
-                                                  </li>
-                                                ))}
-                                              </ul>
-                                              <p className="text-xs text-zinc-300 mb-2">
-                                                <span className="text-zinc-500">
-                                                  Demo:{" "}
-                                                </span>
-                                                {plan.demoProject}
-                                              </p>
-                                              <div className="flex items-start justify-between gap-2">
-                                                <p className="text-xs text-zinc-200 flex-1 leading-relaxed">
-                                                  <span className="text-indigo-400">
-                                                    Resume bullet:{" "}
-                                                  </span>
-                                                  {plan.resumeBullet}
-                                                </p>
-                                                <button
-                                                  onClick={() =>
-                                                    handleCopyBullet(
-                                                      plan.resumeBullet,
-                                                      plan.skill
-                                                    )
-                                                  }
-                                                  title="Copy resume bullet"
-                                                  className="shrink-0 p-1 hover:bg-white/10 rounded transition-colors"
-                                                >
-                                                  {copiedBullet ===
-                                                  plan.skill ? (
-                                                    <Check
-                                                      size={12}
-                                                      className="text-green-400"
-                                                    />
-                                                  ) : (
-                                                    <ClipboardCopy
-                                                      size={12}
-                                                      className="text-zinc-500"
-                                                    />
-                                                  )}
-                                                </button>
+                                                      )}
+                                                    </li>
+                                                  ))}
+                                                </ul>
+                                                {gap.demoProject && (
+                                                  <p className="text-xs text-zinc-300 mb-2">
+                                                    <span className="text-zinc-500">Demo: </span>
+                                                    {gap.demoProject}
+                                                  </p>
+                                                )}
+                                                {gap.resumeBullet && (
+                                                  <div className="flex items-start justify-between gap-2">
+                                                    <p className="text-xs text-zinc-200 flex-1 leading-relaxed">
+                                                      <span className="text-indigo-400">
+                                                        Resume bullet:{" "}
+                                                      </span>
+                                                      {gap.resumeBullet}
+                                                    </p>
+                                                    <button
+                                                      onClick={() =>
+                                                        handleCopyBullet(
+                                                          gap.resumeBullet!,
+                                                          gap.skill
+                                                        )
+                                                      }
+                                                      title="Copy resume bullet"
+                                                      className="shrink-0 p-1 hover:bg-white/10 rounded transition-colors"
+                                                    >
+                                                      {copiedBullet === gap.skill ? (
+                                                        <Check size={12} className="text-green-400" />
+                                                      ) : (
+                                                        <ClipboardCopy size={12} className="text-zinc-500" />
+                                                      )}
+                                                    </button>
+                                                  </div>
+                                                )}
                                               </div>
-                                            </div>
-                                          </motion.div>
-                                        )}
-                                      </AnimatePresence>
-                                    </div>
-                                  );
-                                })}
-                                <motion.button
-                                  whileHover={{ scale: 1.01 }}
-                                  whileTap={{ scale: 0.98 }}
-                                  onClick={handleDownloadPlan}
-                                  className="w-full py-3 flex items-center justify-center gap-2 bg-white/5 border border-white/10 rounded-xl text-zinc-400 text-sm hover:bg-white/10 hover:text-white transition-all"
-                                >
-                                  <Download size={14} />
-                                  Download Learning Plan
-                                </motion.button>
-                              </div>
-                            ) : (
-                              <p className="text-zinc-400 text-xs text-center py-12">
-                                Results will appear here
-                              </p>
-                            )}
-                          </div>
+                                            </motion.div>
+                                          )}
+                                        </AnimatePresence>
+                                      </motion.div>
+                                    );
+                                  })}
+                              </motion.div>
+                              <AnimatePresence>
+                                {selectedGaps.length > 0 && (
+                                  <motion.button
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 6 }}
+                                    transition={{ duration: 0.2 }}
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={handleRewriteWithSkills}
+                                    disabled={rewritingSkills || usage.documents >= 2 || usage.globalExhausted}
+                                    className="mt-4 w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    style={{
+                                      background:
+                                        "linear-gradient(135deg, rgba(255, 182, 185, 0.9), rgba(204, 41, 54, 0.8))",
+                                      color: "white",
+                                    }}
+                                  >
+                                    {rewritingSkills ? (
+                                      <span className="flex items-center justify-center gap-2">
+                                        <Loader2 size={14} className="animate-spin" />
+                                        Rewriting...
+                                      </span>
+                                    ) : (
+                                      `Rewrite Resume with ${selectedGaps.length} Selected Skill${selectedGaps.length > 1 ? "s" : ""}`
+                                    )}
+                                  </motion.button>
+                                )}
+                              </AnimatePresence>
+                              {selectedGaps.length > 0 && <UsageHint feature="documents" limit={2} />}
+                            </>
+                          ) : (
+                            <p className="text-zinc-400 text-xs">
+                              No skill gaps identified
+                            </p>
+                          )}
                         </div>
                       </motion.div>
                     )}
@@ -1702,7 +1638,9 @@ export default function Home() {
                               onClick={handleGenerateDocs}
                               disabled={
                                 (!generateResume && !generateCoverLetter) ||
-                                generatingDocs
+                                generatingDocs ||
+                                usage.documents >= 2 ||
+                                usage.globalExhausted
                               }
                               className="w-full py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
                               style={{
@@ -1721,6 +1659,7 @@ export default function Home() {
                                 "Generate Documents"
                               )}
                             </motion.button>
+                            <UsageHint feature="documents" limit={2} />
 
                             {documents?.changes && documents.changes.length > 0 && (
                               <div className="mt-6">
