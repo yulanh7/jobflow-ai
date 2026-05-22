@@ -1,8 +1,14 @@
 import { createHash } from "crypto";
 import clientPromise from "./mongodb";
 
-export const IP_LIMIT = 3;
 export const GLOBAL_LIMIT = 40;
+
+export const FEATURE_LIMITS = {
+  analyze: 2,
+  documents: 2,
+} as const;
+
+export type Feature = keyof typeof FEATURE_LIMITS;
 
 function getAESTDate(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -10,7 +16,6 @@ function getAESTDate(): string {
   }).format(new Date());
 }
 
-// Hash IP for privacy — never store raw IPs
 function hashIP(ip: string): string {
   return createHash("sha256").update(ip).digest("hex").slice(0, 16);
 }
@@ -22,7 +27,7 @@ async function ensureIndexes() {
     db.collection("ip_usage").createIndex({ ip: 1, date: 1 }, { unique: true }),
     db.collection("ip_usage").createIndex(
       { updatedAt: 1 },
-      { expireAfterSeconds: 172800 } // auto-delete after 48h
+      { expireAfterSeconds: 172800 }
     ),
     db.collection("global_usage").createIndex({ date: 1 }, { unique: true }),
     db.collection("global_usage").createIndex(
@@ -43,38 +48,38 @@ async function getDB() {
   return db;
 }
 
-export type RateLimitResult =
-  | { allowed: true; ipCount: number; globalCount: number }
-  | { allowed: false; reason: "ip_limit" | "global_limit"; ipCount: number; globalCount: number };
+export type FeatureRateLimitResult =
+  | { allowed: true; featureCount: number; globalCount: number }
+  | { allowed: false; reason: "feature_limit" | "global_limit"; featureCount: number; globalCount: number };
 
-export async function checkAndIncrement(rawIP: string): Promise<RateLimitResult> {
+export async function checkAndIncrementFeature(
+  rawIP: string,
+  feature: Feature
+): Promise<FeatureRateLimitResult> {
   const db = await getDB();
   const date = getAESTDate();
   const ip = hashIP(rawIP);
   const now = new Date();
+  const limit = FEATURE_LIMITS[feature];
 
-  // Check global limit first (cheapest rejection)
+  // Check global limit first
   const globalDoc = await db.collection("global_usage").findOne({ date });
   if (globalDoc && globalDoc.count >= GLOBAL_LIMIT) {
-    return { allowed: false, reason: "global_limit", ipCount: 0, globalCount: globalDoc.count };
+    return { allowed: false, reason: "global_limit", featureCount: 0, globalCount: globalDoc.count };
   }
 
-  // Check IP limit
+  // Check feature-specific IP limit
   const ipDoc = await db.collection("ip_usage").findOne({ ip, date });
-  if (ipDoc && ipDoc.count >= IP_LIMIT) {
-    return {
-      allowed: false,
-      reason: "ip_limit",
-      ipCount: ipDoc.count,
-      globalCount: globalDoc?.count ?? 0,
-    };
+  const featureCount: number = ipDoc?.[feature] ?? 0;
+  if (featureCount >= limit) {
+    return { allowed: false, reason: "feature_limit", featureCount, globalCount: globalDoc?.count ?? 0 };
   }
 
-  // Increment both atomically
+  // Increment both
   const [updatedIP, updatedGlobal] = await Promise.all([
     db.collection("ip_usage").findOneAndUpdate(
       { ip, date },
-      { $inc: { count: 1 }, $set: { updatedAt: now } },
+      { $inc: { [feature]: 1 }, $set: { updatedAt: now } },
       { upsert: true, returnDocument: "after" }
     ),
     db.collection("global_usage").findOneAndUpdate(
@@ -86,7 +91,7 @@ export async function checkAndIncrement(rawIP: string): Promise<RateLimitResult>
 
   return {
     allowed: true,
-    ipCount: updatedIP?.count ?? 1,
+    featureCount: (updatedIP?.[feature] as number | undefined) ?? 1,
     globalCount: updatedGlobal?.count ?? 1,
   };
 }
@@ -113,7 +118,8 @@ export async function checkAndIncrementGlobal(): Promise<
 }
 
 export async function getUsageStatus(rawIP: string): Promise<{
-  ipCount: number;
+  analyze: number;
+  documents: number;
   globalCount: number;
 }> {
   const db = await getDB();
@@ -126,7 +132,8 @@ export async function getUsageStatus(rawIP: string): Promise<{
   ]);
 
   return {
-    ipCount: ipDoc?.count ?? 0,
+    analyze: (ipDoc?.analyze as number | undefined) ?? 0,
+    documents: (ipDoc?.documents as number | undefined) ?? 0,
     globalCount: globalDoc?.count ?? 0,
   };
 }
@@ -134,7 +141,6 @@ export async function getUsageStatus(rawIP: string): Promise<{
 export function getResetTimeISO(): string {
   const date = getAESTDate();
   const [y, m, d] = date.split("-").map(Number);
-  // Tomorrow midnight Sydney — approximate as UTC+10
   const tomorrowMidnightUTC = Date.UTC(y, m - 1, d + 1, 0, 0, 0) - 10 * 3600 * 1000;
   return new Date(tomorrowMidnightUTC).toISOString();
 }

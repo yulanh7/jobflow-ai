@@ -1,9 +1,8 @@
-// src/app/api/analyze/route.ts
-// Analyzes resume-job alignment using Gemini AI and returns structured feedback
+// Analyzes resume-job alignment and generates learning plans for all skill gaps
 
 import { NextRequest, NextResponse } from "next/server";
-import { isRateLimitError } from "@/lib/utils";
-import { checkAndIncrement, checkAndIncrementGlobal, IP_LIMIT, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
+import { isRateLimitError, isDbError } from "@/lib/utils";
+import { checkAndIncrementFeature, checkAndIncrementGlobal, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
 import fs from "fs";
 import path from "path";
@@ -42,30 +41,22 @@ export async function POST(req: NextRequest) {
       const result = await checkAndIncrementGlobal();
       if (!result.allowed) {
         return NextResponse.json(
-          {
-            error: "今日网站使用总次数已满，请明天再试。",
-            reason: "global_limit",
-            ipCount: 0,
-            globalCount: result.globalCount,
-            ipLimit: IP_LIMIT,
-            globalLimit: GLOBAL_LIMIT,
-            resetAt: getResetTimeISO(),
-          },
+          { error: "今日网站使用总次数已满，请明天再试。", reason: "global_limit", globalCount: result.globalCount, globalLimit: GLOBAL_LIMIT, resetAt: getResetTimeISO() },
           { status: 429 }
         );
       }
     } else {
-      const rateLimit = await checkAndIncrement(getIP(req));
+      const rateLimit = await checkAndIncrementFeature(getIP(req), "analyze");
       if (!rateLimit.allowed) {
         return NextResponse.json(
           {
             error: rateLimit.reason === "global_limit"
               ? "今日网站使用总次数已满，请明天再试。"
-              : "您今日的使用次数已达上限，请明天再试。",
+              : "您今日的分析次数已达上限，请明天再试。",
             reason: rateLimit.reason,
-            ipCount: rateLimit.ipCount,
+            featureCount: rateLimit.featureCount,
             globalCount: rateLimit.globalCount,
-            ipLimit: IP_LIMIT,
+            featureLimit: FEATURE_LIMITS.analyze,
             globalLimit: GLOBAL_LIMIT,
             resetAt: getResetTimeISO(),
           },
@@ -95,21 +86,33 @@ Base evaluation ONLY on explicit evidence in the resume. Do not infer skills. Sc
 - Maximum 5 entries, ordered by impact on the hiring decision
 - If no gaps exist, return an empty array [] — never omit the field
 - Never include language skills as skill gaps — note them in the gaps array instead
-- Citizenship, residency, and clearance requirements → gaps array only, never skillGaps: "Requires [exact requirement] — eligibility requirement, not a learnable skill"
+- Citizenship, residency, and clearance requirements → gaps array only, never skillGaps
 
 # Category Definitions (assign honestly — do not over-optimise)
-- interview_ready: Conceptual, 4-8 hours. Required fields: skill, reason, category, timeEstimate, interviewTip.
-- quick_win: Genuinely learnable 24-48 hours, addable to resume. Required fields: + quickWinPlan.
-- long_term: 1+ month sustained effort. Required fields: + longTermPartA, longTermPartB.
+- interview_ready: Conceptual only, 4-8 hours. Can be discussed in interview but not built yet.
+- quick_win: Genuinely learnable 24-48 hours, buildable demo, addable to resume.
+- long_term: 1+ month sustained effort to reach employable level.
 
-Every skill must have an interviewTip. Omit category-specific fields that don't apply.
+Every skill must have an interviewTip. Omit category-specific plan fields that don't apply.
+
+# Learning Plan (REQUIRED for every skillGap — even if gaps array is empty, return skillGaps: [])
+For EACH skill gap, generate a practical learning plan immediately actionable. Use only real, existing resources (official docs, YouTube, Coursera, MDN). If a URL is uncertain, use the platform name as the url value.
+
+Learning plan additions per skillGap:
+- steps: 2-4 steps proportional to timeEstimate
+  - day: e.g. "Day 1 (3hrs)"
+  - task: concrete action to take
+  - resources: at least one per step — [{type, title, url}] (types: "video" "docs" "book" "course" "article")
+  - aiPrompt: a practical prompt the user can paste into an AI assistant to learn hands-on
+- demoProject: one specific, buildable demo that proves this skill on a resume (one sentence)
+- resumeBullet: "Built [X] using [skill] to [outcome]" — ready to paste
 
 # Input
 RESUME: ${resumeText}
 JOB DESCRIPTION: ${jobDescription}
 
 # Output Format
-Return ONLY valid JSON — no markdown, no explanation. You MUST include the skillGaps array even if empty:
+Return ONLY valid JSON — no markdown, no explanation:
 {
   "score": 0-100,
   "summary": "2-3 sentence overview",
@@ -125,7 +128,17 @@ Return ONLY valid JSON — no markdown, no explanation. You MUST include the ski
       "interviewTip": "...",
       "quickWinPlan": "(quick_win only) ...",
       "longTermPartA": "(long_term only) ...",
-      "longTermPartB": "(long_term only) ..."
+      "longTermPartB": "(long_term only) ...",
+      "steps": [
+        {
+          "day": "Day 1 (4hrs)",
+          "task": "...",
+          "resources": [{"type": "video", "title": "Angular Crash Course", "url": "https://youtube.com/..."}],
+          "aiPrompt": "Teach me Angular components with a hands-on example..."
+        }
+      ],
+      "demoProject": "Build a task manager SPA with Angular routing and services",
+      "resumeBullet": "Built a task manager SPA using Angular to demonstrate component-based architecture"
     }
   ]
 }
@@ -137,7 +150,6 @@ Return ONLY valid JSON — no markdown, no explanation. You MUST include the ski
       return result.response.text();
     });
 
-    // Extract JSON — strip markdown code fences if present
     let cleanJson = responseText;
     if (responseText.includes("```")) {
       const match = responseText.match(/```(?:json)?([\s\S]*?)```/);
@@ -147,7 +159,7 @@ Return ONLY valid JSON — no markdown, no explanation. You MUST include the ski
     try {
       const analysis = JSON.parse(cleanJson);
       return NextResponse.json(analysis);
-    } catch (parseError) {
+    } catch {
       console.error("JSON parse error. Raw response:", responseText);
       return NextResponse.json(
         { error: "AI returned an invalid format. Please try again." },
@@ -155,21 +167,13 @@ Return ONLY valid JSON — no markdown, no explanation. You MUST include the ski
       );
     }
   } catch (error: unknown) {
-    console.error("Gemini analysis error:", error);
-
+    console.error("Analysis error:", error);
     if (isRateLimitError(error)) {
-      return NextResponse.json(
-        {
-          error:
-            "API rate limit exceeded. Please wait a minute before retrying.",
-        },
-        { status: 429 }
-      );
+      return NextResponse.json({ error: "API rate limit exceeded. Please wait a minute before retrying." }, { status: 429 });
     }
-
-    return NextResponse.json(
-      { error: "Failed to connect to AI engine" },
-      { status: 500 }
-    );
+    if (isDbError(error)) {
+      return NextResponse.json({ error: "Database connection error. Check your MONGODB_URI." }, { status: 500 });
+    }
+    return NextResponse.json({ error: "Failed to connect to AI engine" }, { status: 500 });
   }
 }

@@ -1,7 +1,7 @@
-// Returns current usage counts for the requesting IP (read-only, no increment)
+// Returns current per-feature usage counts for the requesting IP (read-only, no increment)
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUsageStatus, IP_LIMIT, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
+import { getUsageStatus, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
 
 function getIP(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -11,15 +11,23 @@ function getIP(req: NextRequest): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const { ipCount, globalCount } = await getUsageStatus(getIP(req));
+    const { analyze, documents, globalCount } = await getUsageStatus(getIP(req));
     return NextResponse.json({
-      ipCount,
+      analyze,
+      documents,
       globalCount,
-      ipLimit: IP_LIMIT,
+      limits: FEATURE_LIMITS,
       globalLimit: GLOBAL_LIMIT,
       resetAt: getResetTimeISO(),
     });
   } catch {
-    return NextResponse.json({ ipCount: 0, globalCount: 0, ipLimit: IP_LIMIT, globalLimit: GLOBAL_LIMIT, resetAt: null });
+    return NextResponse.json({
+      analyze: 0,
+      documents: 0,
+      globalCount: 0,
+      limits: FEATURE_LIMITS,
+      globalLimit: GLOBAL_LIMIT,
+      resetAt: null,
+    });
   }
 }

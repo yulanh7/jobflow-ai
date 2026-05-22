@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { isRateLimitError } from "@/lib/utils";
-import { checkAndIncrement, checkAndIncrementGlobal, IP_LIMIT, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
+import { checkAndIncrementGlobal, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
 import fs from "fs";
 import path from "path";
@@ -37,40 +37,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (isStudioRequest(req)) {
-      const result = await checkAndIncrementGlobal();
-      if (!result.allowed) {
-        return NextResponse.json(
-          {
-            error: "今日网站使用总次数已满，请明天再试。",
-            reason: "global_limit",
-            ipCount: 0,
-            globalCount: result.globalCount,
-            ipLimit: IP_LIMIT,
-            globalLimit: GLOBAL_LIMIT,
-            resetAt: getResetTimeISO(),
-          },
-          { status: 429 }
-        );
-      }
-    } else {
-      const rateLimit = await checkAndIncrement(getIP(req));
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          {
-            error: rateLimit.reason === "global_limit"
-              ? "今日网站使用总次数已满，请明天再试。"
-              : "您今日的使用次数已达上限，请明天再试。",
-            reason: rateLimit.reason,
-            ipCount: rateLimit.ipCount,
-            globalCount: rateLimit.globalCount,
-            ipLimit: IP_LIMIT,
-            globalLimit: GLOBAL_LIMIT,
-            resetAt: getResetTimeISO(),
-          },
-          { status: 429 }
-        );
-      }
+    if (!isStudioRequest(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const result = await checkAndIncrementGlobal();
+    if (!result.allowed) {
+      return NextResponse.json(
+        { error: "今日网站使用总次数已满，请明天再试。", reason: "global_limit", globalCount: result.globalCount, globalLimit: GLOBAL_LIMIT, resetAt: getResetTimeISO() },
+        { status: 429 }
+      );
     }
 
     const prompt = `

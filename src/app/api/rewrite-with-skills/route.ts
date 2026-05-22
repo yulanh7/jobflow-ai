@@ -2,8 +2,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { SchemaType } from "@google/generative-ai";
-import { isRateLimitError } from "@/lib/utils";
-import { checkAndIncrement, checkAndIncrementGlobal, IP_LIMIT, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
+import { isRateLimitError, isDbError } from "@/lib/utils";
+import { checkAndIncrementFeature, checkAndIncrementGlobal, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
 import fs from "fs";
 import path from "path";
@@ -60,9 +60,7 @@ export async function POST(req: NextRequest) {
           {
             error: "今日网站使用总次数已满，请明天再试。",
             reason: "global_limit",
-            ipCount: 0,
             globalCount: result.globalCount,
-            ipLimit: IP_LIMIT,
             globalLimit: GLOBAL_LIMIT,
             resetAt: getResetTimeISO(),
           },
@@ -70,17 +68,17 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
-      const rateLimit = await checkAndIncrement(getIP(req));
+      const rateLimit = await checkAndIncrementFeature(getIP(req), "documents");
       if (!rateLimit.allowed) {
         return NextResponse.json(
           {
             error: rateLimit.reason === "global_limit"
               ? "今日网站使用总次数已满，请明天再试。"
-              : "您今日的使用次数已达上限，请明天再试。",
+              : "您今日的文件生成次数已达上限，请明天再试。",
             reason: rateLimit.reason,
-            ipCount: rateLimit.ipCount,
+            featureCount: rateLimit.featureCount,
             globalCount: rateLimit.globalCount,
-            ipLimit: IP_LIMIT,
+            featureLimit: FEATURE_LIMITS.documents,
             globalLimit: GLOBAL_LIMIT,
             resetAt: getResetTimeISO(),
           },
@@ -211,18 +209,11 @@ Return ONLY valid JSON — no markdown, no explanation:
     console.error("Rewrite with skills error:", error);
 
     if (isRateLimitError(error)) {
-      return NextResponse.json(
-        {
-          error:
-            "API rate limit exceeded. Please wait a minute before retrying.",
-        },
-        { status: 429 }
-      );
+      return NextResponse.json({ error: "API rate limit exceeded. Please wait a minute before retrying." }, { status: 429 });
     }
-
-    return NextResponse.json(
-      { error: "Failed to connect to AI engine" },
-      { status: 500 }
-    );
+    if (isDbError(error)) {
+      return NextResponse.json({ error: "Database connection error. Check your MONGODB_URI." }, { status: 500 });
+    }
+    return NextResponse.json({ error: "Failed to connect to AI engine" }, { status: 500 });
   }
 }
