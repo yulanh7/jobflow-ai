@@ -7,7 +7,7 @@
   --brand-red: #cc2936;
   --text-subtitle: #e2e8f0;
   --text-body: #cbd5e1;
-  --text-muted: rgba(241, 246, 253, 0.55);
+  --text-muted: #94a3b8;
   --bg-card: rgba(255, 255, 255, 0.05);
   --border-card: rgba(255, 255, 255, 0.08);
   --accent-analysis: #cc2936;
@@ -30,7 +30,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f8fafc;
+  background: #0f172a;
   color: #cbd5e1;
   line-height: 1.6;
   overflow-x: hidden;
@@ -57,10 +57,10 @@ section[id^="section-"] {
   color: #94a3b8;
 }
 .text-zinc-600 {
-  color: rgba(148, 163, 184, 0.6);
+  color: #6b7e94;
 }
 .text-zinc-700 {
-  color: rgba(148, 163, 184, 0.35);
+  color: #566a80;
 }
 
 /* ── Animations ─────────────────────────────────────────────────────────────── */

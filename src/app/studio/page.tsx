@@ -196,7 +196,7 @@ function LockScreen({ onUnlock }: { onUnlock: (password: string) => void }) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
                 autoFocus
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-[rgba(204,41,54,0.45)] transition-colors"
               />
               {error && (
                 <p className="text-red-400 text-xs">Incorrect password</p>
@@ -1059,7 +1059,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                               className="flex flex-col items-center gap-3"
                             >
                               <Loader2
-                                className="animate-spin text-indigo-500"
+                                className="animate-spin text-[var(--brand-red)]"
                                 size={32}
                               />
                               <span className="text-zinc-400 text-sm animate-pulse">
@@ -1075,9 +1075,9 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                               animate={{ opacity: 1, y: 0 }}
                               className="flex flex-col items-center w-full"
                             >
-                              <div className="flex items-center gap-4 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl w-full mb-5">
+                              <div className="flex items-center gap-4 p-4 bg-[rgba(204,41,54,0.1)] border border-[rgba(204,41,54,0.25)] rounded-2xl w-full mb-5">
                                 <FileText
-                                  className="text-indigo-400 shrink-0"
+                                  className="text-[var(--brand-red)] shrink-0"
                                   size={22}
                                 />
                                 <div className="text-left overflow-hidden flex-1">
@@ -1103,7 +1103,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                                   setJobDescription(e.target.value)
                                 }
                                 placeholder="Paste the Job Description here..."
-                                className="w-full h-36 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-indigo-500/50 transition-colors mb-4"
+                                className="w-full h-36 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-[rgba(204,41,54,0.45)] transition-colors mb-4"
                               />
 
                               <motion.button
@@ -1134,7 +1134,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                             className={`h-1.5 w-1.5 rounded-full transition-colors duration-500 ${
                               status === "success"
                                 ? "bg-green-500 shadow-[0_0_8px_#22c55e]"
-                                : "bg-indigo-500 animate-pulse"
+                                : "bg-[var(--brand-red)] animate-pulse"
                             }`}
                           />
                           <span className="text-[10px] text-zinc-500 uppercase tracking-[0.3em]">
@@ -1268,7 +1268,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                                               confirmedQualifications.includes(
                                                 item
                                               )
-                                                ? "bg-indigo-600 border-indigo-500"
+                                                ? "bg-[#cc2936] border-[#cc2936]"
                                                 : "bg-transparent border-white/20 hover:border-white/40"
                                             }`}
                                           >
@@ -1453,7 +1453,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                                           onClick={() => toggleGap(gap.skill)}
                                           className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
                                             checked
-                                              ? "bg-indigo-600 border-indigo-500"
+                                              ? "bg-[#cc2936] border-[#cc2936]"
                                               : "bg-transparent border-white/20 hover:border-white/40"
                                           }`}
                                         >
@@ -1564,7 +1564,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                                           onClick={toggle}
                                           className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
                                             checked
-                                              ? "bg-indigo-600 border-indigo-500"
+                                              ? "bg-[#cc2936] border-[#cc2936]"
                                               : "bg-transparent border-white/20 hover:border-white/40"
                                           }`}
                                         >
@@ -1738,7 +1738,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                                                   {step.aiPrompt && (
                                                     <div className="ml-4 flex items-start gap-2">
                                                       <div className="flex-1">
-                                                        <p className="text-[10px] text-indigo-400 mb-0.5">
+                                                        <p className="text-[10px] text-[var(--highlight)] mb-0.5">
                                                           🤖 AI Learning Prompt
                                                         </p>
                                                         <p className="text-zinc-500 italic leading-relaxed">
@@ -1781,7 +1781,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                                             </p>
                                             <div className="flex items-start justify-between gap-2">
                                               <p className="text-xs text-zinc-200 flex-1 leading-relaxed">
-                                                <span className="text-indigo-400">
+                                                <span className="text-[var(--highlight)]">
                                                   Resume bullet:{" "}
                                                 </span>
                                                 {plan.resumeBullet}
@@ -1891,7 +1891,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                                   onClick={toggle}
                                   className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
                                     checked
-                                      ? "bg-indigo-600 border-indigo-500"
+                                      ? "bg-[#cc2936] border-[#cc2936]"
                                       : "bg-transparent border-white/20 hover:border-white/40"
                                   }`}
                                 >
@@ -1911,14 +1911,14 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                           </div>
 
                           {confirmedQualifications.length > 0 && (
-                            <div className="mb-4 px-3 py-2.5 rounded-lg border border-indigo-500/25 bg-indigo-500/10">
-                              <p className="text-[10px] uppercase tracking-widest text-indigo-300 mb-1.5">
+                            <div className="mb-4 px-3 py-2.5 rounded-lg border border-[rgba(204,41,54,0.25)] bg-[rgba(204,41,54,0.1)]">
+                              <p className="text-[10px] uppercase tracking-widest text-[var(--highlight)] mb-1.5">
                                 Confirmed qualifications — will be added to documents
                               </p>
                               <ul className="space-y-0.5">
                                 {confirmedQualifications.map((q, i) => (
                                   <li key={i} className="flex items-start gap-1.5 text-xs text-zinc-300">
-                                    <Check size={10} className="text-indigo-400 mt-0.5 shrink-0" strokeWidth={3} />
+                                    <Check size={10} className="text-[var(--highlight)] mt-0.5 shrink-0" strokeWidth={3} />
                                     {q}
                                   </li>
                                 ))}
