@@ -124,14 +124,14 @@ function cleanMarkdown(text: string): string {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return "#cc2936";
+  if (score >= 80) return "#4ade80";
   if (score >= 60) return "#e07c54";
   if (score >= 40) return "#ffb6b9";
   return "#94a3b8";
 }
 
 function getScoreBarColor(score: number): string {
-  if (score >= 80) return "#cc2936";
+  if (score >= 80) return "#4ade80";
   if (score >= 60) return "#e07c54";
   if (score >= 40) return "#ffb6b9";
   return "rgba(148,163,184,0.4)";
@@ -644,7 +644,7 @@ export default function Home() {
 
   return (
     <>
-      <main className="min-h-screen bg-[linear-gradient(135deg,rgba(15,23,42,0.9)_0%,rgba(30,41,59,0.8)_100%)] relative">
+      <main className="min-h-screen bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_100%)] relative">
         <AmbientGlow />
         <FloatingGeometry />
 
@@ -895,7 +895,6 @@ export default function Home() {
                                   <Upload size={18} />
                                   Upload Your Resume
                                 </motion.button>
-                                <UsageHint feature="analyze" limit={2} />
                               </>
                             )}
 
@@ -1061,7 +1060,7 @@ export default function Home() {
 
                                 <div className="grid grid-cols-2 gap-6 mb-8 pb-8 border-b border-white/5">
                                   <div>
-                                    <h3 className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium text-[var(--accent-analysis)]">
+                                    <h3 className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium text-green-500">
                                       Strengths
                                     </h3>
                                     <motion.ul

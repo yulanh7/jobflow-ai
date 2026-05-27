@@ -128,14 +128,14 @@ function cleanMarkdown(text: string): string {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return "#cc2936";
+  if (score >= 80) return "#4ade80";
   if (score >= 60) return "#e07c54";
   if (score >= 40) return "#ffb6b9";
   return "#94a3b8";
 }
 
 function getScoreBarColor(score: number): string {
-  if (score >= 80) return "#cc2936";
+  if (score >= 80) return "#4ade80";
   if (score >= 60) return "#e07c54";
   if (score >= 40) return "#ffb6b9";
   return "rgba(148,163,184,0.4)";
@@ -903,7 +903,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
   return (
     <>
       <main
-        className="min-h-screen bg-[linear-gradient(135deg,rgba(15,23,42,0.9)_0%,rgba(30,41,59,0.8)_100%)] relative"
+        className="min-h-screen bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_100%)] relative"
       >
         <AmbientGlow />
         <FloatingGeometry />
@@ -1204,7 +1204,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                               <div className="grid grid-cols-2 gap-6 mb-8 pb-8 border-b border-white/5">
                                 <div>
                                   <h3
-                                    className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium text-[var(--accent-analysis)]"
+                                    className="text-[10px] uppercase tracking-[0.2em] mb-4 font-medium text-green-500"
                                   >
                                     Strengths
                                   </h3>
@@ -1931,14 +1931,14 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                             value={candidateName}
                             onChange={(e) => setCandidateName(e.target.value)}
                             placeholder="Your full name (for cover letter sign-off)"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors mb-3"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-[rgba(204,41,54,0.45)] transition-colors mb-3"
                           />
 
                           <textarea
                             value={extraContext}
                             onChange={(e) => setExtraContext(e.target.value)}
                             placeholder="Optional: add extra context — e.g. 'I recently learned Angular' or 'I have Baseline Clearance'"
-                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-emerald-500/50 transition-colors mb-4"
+                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-[rgba(204,41,54,0.45)] transition-colors mb-4"
                           />
 
                           <motion.button
@@ -2265,7 +2265,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                             value={rawQuestions}
                             onChange={(e) => setRawQuestions(e.target.value)}
                             placeholder={`Which of the following statements best describes your right to work in Australia?\nHow many years' experience do you have as a full stack developer?\nWhat's your expected annual base salary?`}
-                            className="w-full h-36 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-amber-500/40 transition-colors mb-4"
+                            className="w-full h-36 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-[rgba(204,41,54,0.45)] transition-colors mb-4"
                           />
                           <motion.button
                             whileHover={{ scale: rawQuestions.trim() ? 1.01 : 1 }}
@@ -2306,7 +2306,7 @@ function StudioApp({ onLock, studioPassword }: { onLock: () => void; studioPassw
                                     setDraftAnswers(next);
                                   }}
                                   placeholder="Your answer (e.g. 澳洲公民 / 5 years / 130k...)"
-                                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/40 transition-colors"
+                                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-[rgba(204,41,54,0.45)] transition-colors"
                                 />
                               </div>
                             ))}
