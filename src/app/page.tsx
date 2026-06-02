@@ -648,7 +648,7 @@ export default function Home() {
         <AmbientGlow />
         <FloatingGeometry />
 
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-0 py-16 lg:pl-34 pb-20 lg:pb-0 lg:px-6">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 py-16 lg:pl-34 pb-20 lg:pb-0 lg:px-6">
           {/* Tracking nav - desktop only, absolutely positioned to follow active section */}
           <nav
             className="hidden min-w-[119px] lg:flex flex-col gap-4 bg-zinc-900/30 backdrop-blur-sm border border-white/[0.03] rounded-xl px-3 py-4"
