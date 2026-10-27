@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { isRateLimitError, isDbError } from "@/lib/utils";
 import { checkAndIncrementFeature, checkAndIncrementGlobal, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
-import fs from "fs";
-import path from "path";
+import { CONTENT_STANDARDS } from "@/prompts/contentStandards";
+import { getCandidateProfile } from "@/lib/candidateProfile";
 
 function getIP(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -18,14 +18,6 @@ function isStudioRequest(req: NextRequest): boolean {
   return !!process.env.STUDIO_PASSWORD && pw === process.env.STUDIO_PASSWORD;
 }
 
-const skillsDir = path.join(process.cwd(), ".claude/skills");
-let contentStandards = "";
-let candidateProfile = "";
-try {
-  contentStandards = fs.readFileSync(path.join(skillsDir, "content-standards/SKILL.md"), "utf-8");
-  candidateProfile = fs.readFileSync(path.join(skillsDir, "my-profile/SKILL.md"), "utf-8");
-} catch { /* skills not available in this environment */ }
-
 export async function POST(req: NextRequest) {
   try {
     const { resumeText, jobDescription } = await req.json();
@@ -37,7 +29,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (isStudioRequest(req)) {
+    const isStudio = isStudioRequest(req);
+    if (isStudio) {
       const result = await checkAndIncrementGlobal();
       if (!result.allowed) {
         return NextResponse.json(
@@ -65,13 +58,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Personal profile is studio-only; public users must never receive it
+    const candidateProfile = isStudio ? getCandidateProfile() : "";
+
     const prompt = `
 # Rules
-${contentStandards}
-
-# Candidate Profile
-${candidateProfile}
-
+${CONTENT_STANDARDS}
+${candidateProfile ? `\n# Candidate Profile\n${candidateProfile}\n` : ""}
 # Task
 Evaluate the candidate's alignment with the provided Job Description. Score 0-100:
 - 80-100: Strong match, most required skills explicitly present

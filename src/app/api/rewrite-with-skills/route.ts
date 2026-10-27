@@ -5,8 +5,8 @@ import { SchemaType } from "@google/generative-ai";
 import { isRateLimitError, isDbError } from "@/lib/utils";
 import { checkAndIncrementFeature, checkAndIncrementGlobal, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
-import fs from "fs";
-import path from "path";
+import { CONTENT_STANDARDS } from "@/prompts/contentStandards";
+import { getCandidateProfile } from "@/lib/candidateProfile";
 
 function getIP(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -18,14 +18,6 @@ function isStudioRequest(req: NextRequest): boolean {
   const pw = req.headers.get("x-studio-password");
   return !!process.env.STUDIO_PASSWORD && pw === process.env.STUDIO_PASSWORD;
 }
-
-const skillsDir = path.join(process.cwd(), ".claude/skills");
-let contentStandards = "";
-let candidateProfile = "";
-try {
-  contentStandards = fs.readFileSync(path.join(skillsDir, "content-standards/SKILL.md"), "utf-8");
-  candidateProfile = fs.readFileSync(path.join(skillsDir, "my-profile/SKILL.md"), "utf-8");
-} catch { /* skills not available in this environment */ }
 
 export async function POST(req: NextRequest) {
   try {
@@ -53,7 +45,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (isStudioRequest(req)) {
+    const isStudio = isStudioRequest(req);
+    if (isStudio) {
       const result = await checkAndIncrementGlobal();
       if (!result.allowed) {
         return NextResponse.json(
@@ -87,15 +80,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Personal profile is studio-only; public users must never receive it
+    const candidateProfile = isStudio ? getCandidateProfile() : "";
+
     const todayDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
     const prompt = `
 # Rules
-${contentStandards}
-
-# Candidate Profile
-${candidateProfile}
-
+${CONTENT_STANDARDS}
+${candidateProfile ? `\n# Candidate Profile\n${candidateProfile}\n` : ""}
 # Confirmed Qualifications (CRITICAL — runtime data)
 CONFIRMED QUALIFICATIONS: ${confirmedQualifications?.length > 0 ? confirmedQualifications.join(", ") : "NONE"}
 - CITIZENSHIP: If "Australian Citizen" NOT in confirmed list → DO NOT mention citizenship → use "I hold full Australian working rights."
@@ -131,7 +124,7 @@ ${jobDescription}
 ${JSON.stringify(selectedGaps, null, 2)}
 
 # Cover Letter Format
-- Header: extract name, email, phone from Candidate Profile — output on separate lines (name, then email, then phone)
+- Header: extract name, email, phone from the uploaded resume — output on separate lines (name, then email, then phone)
 - Date: "${todayDate}"
 - Greeting: scan JD for hiring manager name → "Dear [Name]," or "Dear Hiring Manager,"
 - Closing: "Kind regards,\n\n${candidateName?.trim() || "[Your Name]"}"

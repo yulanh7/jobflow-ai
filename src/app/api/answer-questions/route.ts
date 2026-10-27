@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { isRateLimitError } from "@/lib/utils";
 import { checkAndIncrementGlobal, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
-import fs from "fs";
-import path from "path";
+import { CONTENT_STANDARDS } from "@/prompts/contentStandards";
+import { getCandidateProfile } from "@/lib/candidateProfile";
 
 function getIP(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -17,14 +17,6 @@ function isStudioRequest(req: NextRequest): boolean {
   const pw = req.headers.get("x-studio-password");
   return !!process.env.STUDIO_PASSWORD && pw === process.env.STUDIO_PASSWORD;
 }
-
-const skillsDir = path.join(process.cwd(), ".claude/skills");
-let contentStandards = "";
-let candidateProfile = "";
-try {
-  contentStandards = fs.readFileSync(path.join(skillsDir, "content-standards/SKILL.md"), "utf-8");
-  candidateProfile = fs.readFileSync(path.join(skillsDir, "my-profile/SKILL.md"), "utf-8");
-} catch { /* skills not available in this environment */ }
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,13 +41,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const candidateProfile = getCandidateProfile();
+
     const prompt = `
 # Rules
-${contentStandards}
-
-# Candidate Profile
-${candidateProfile}
-
+${CONTENT_STANDARDS}
+${candidateProfile ? `\n# Candidate Profile\n${candidateProfile}\n` : ""}
 # Task
 Answer each employer screening question directly and concisely. Base answers ONLY on information in the candidate profile and uploaded resume. Keep each answer to 1-2 sentences maximum.
 
