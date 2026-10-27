@@ -16,5 +16,5 @@ export function isDbError(error: unknown): boolean {
   const e = error as Record<string, unknown>;
   const name = typeof e.name === "string" ? e.name : "";
   const msg = typeof e.message === "string" ? e.message : "";
-  return name.includes("Mongo") || msg.includes("Mongo") || msg.includes("bad auth") || msg.includes("ECONNREFUSED");
+  return name.includes("Upstash") || name === "UrlError" || msg.includes("Upstash") || msg.includes("ECONNREFUSED");
 }

@@ -201,7 +201,7 @@ For quick_win skills: mention as a recent personal project. For interview_ready:
       return NextResponse.json({ error: "API rate limit exceeded. Please wait a minute before retrying." }, { status: 429 });
     }
     if (isDbError(error)) {
-      return NextResponse.json({ error: "Database connection error. Check your MONGODB_URI." }, { status: 500 });
+      return NextResponse.json({ error: "Database connection error. Check your Upstash Redis environment variables." }, { status: 500 });
     }
     return NextResponse.json({ error: "Failed to connect to AI engine" }, { status: 500 });
   }

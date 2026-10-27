@@ -1,6 +1,5 @@
 import { createHash } from "crypto";
-import { MongoServerError, type Db } from "mongodb";
-import clientPromise from "./mongodb";
+import { Redis } from "@upstash/redis";
 
 export const GLOBAL_LIMIT = 40;
 
@@ -10,6 +9,38 @@ export const FEATURE_LIMITS = {
 } as const;
 
 export type Feature = keyof typeof FEATURE_LIMITS;
+
+// Counters outlive the AEST day they belong to, then expire on their own
+const KEY_TTL_SECONDS = 172800;
+
+// Increments only while below the limit; returns the new count, or -1 when full.
+// Runs as one Lua script so concurrent requests can't overshoot the limit.
+const INCREMENT_BELOW_LIMIT = `
+local current = tonumber(redis.call("GET", KEYS[1]) or "0")
+if current >= tonumber(ARGV[1]) then return -1 end
+local next = redis.call("INCR", KEYS[1])
+if next == 1 then redis.call("EXPIRE", KEYS[1], ARGV[2]) end
+return next`;
+
+const DECREMENT_ABOVE_ZERO = `
+local current = tonumber(redis.call("GET", KEYS[1]) or "0")
+if current > 0 then return redis.call("DECR", KEYS[1]) end
+return 0`;
+
+// Created lazily so builds without Redis env vars still succeed.
+// Reads UPSTASH_REDIS_REST_URL/TOKEN, falling back to KV_REST_API_URL/TOKEN.
+let redis: Redis | undefined;
+function getRedis(): Redis {
+  if (!redis) {
+    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+    if (!url || !token) {
+      throw new Error("[Upstash Redis] Missing REST URL or token environment variable");
+    }
+    redis = new Redis({ url, token });
+  }
+  return redis;
+}
 
 function getAESTDate(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -21,32 +52,12 @@ function hashIP(ip: string): string {
   return createHash("sha256").update(ip).digest("hex").slice(0, 16);
 }
 
-async function ensureIndexes() {
-  const client = await clientPromise;
-  const db = client.db();
-  await Promise.all([
-    db.collection("ip_usage").createIndex({ ip: 1, date: 1 }, { unique: true }),
-    db.collection("ip_usage").createIndex(
-      { updatedAt: 1 },
-      { expireAfterSeconds: 172800 }
-    ),
-    db.collection("global_usage").createIndex({ date: 1 }, { unique: true }),
-    db.collection("global_usage").createIndex(
-      { updatedAt: 1 },
-      { expireAfterSeconds: 172800 }
-    ),
-  ]);
+function globalKey(date: string): string {
+  return `usage:global:${date}`;
 }
 
-let indexesReady = false;
-async function getDB() {
-  const client = await clientPromise;
-  const db = client.db();
-  if (!indexesReady) {
-    await ensureIndexes();
-    indexesReady = true;
-  }
-  return db;
+function featureKey(ip: string, date: string, feature: Feature): string {
+  return `usage:ip:${ip}:${date}:${feature}`;
 }
 
 export type RefundFn = () => Promise<void>;
@@ -55,75 +66,48 @@ export type FeatureRateLimitResult =
   | { allowed: true; featureCount: number; globalCount: number; refund: RefundFn }
   | { allowed: false; reason: "feature_limit" | "global_limit"; featureCount: number; globalCount: number };
 
-function isDuplicateKeyError(err: unknown): boolean {
-  return err instanceof MongoServerError && err.code === 11000;
+async function incrementBelowLimit(key: string, limit: number): Promise<number | null> {
+  const count = await getRedis().eval<[number, number], number>(
+    INCREMENT_BELOW_LIMIT,
+    [key],
+    [limit, KEY_TTL_SECONDS]
+  );
+  return count === -1 ? null : count;
 }
 
-// Atomically increments `field` only while it is below `limit`.
-// A full counter makes the filter miss, so the upsert collides with the unique
-// index; one retry covers two first-of-day requests racing to insert.
-async function incrementBelowLimit(
-  db: Db,
-  collection: string,
-  key: Record<string, string>,
-  field: string,
-  limit: number
-): Promise<number | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const doc = await db.collection(collection).findOneAndUpdate(
-        { ...key, $or: [{ [field]: { $lt: limit } }, { [field]: { $exists: false } }] },
-        { $inc: { [field]: 1 }, $set: { updatedAt: new Date() } },
-        { upsert: true, returnDocument: "after" }
-      );
-      return (doc?.[field] as number | undefined) ?? 1;
-    } catch (err) {
-      if (!isDuplicateKeyError(err)) throw err;
-    }
-  }
-  return null;
-}
-
-async function decrement(
-  db: Db,
-  collection: string,
-  key: Record<string, string>,
-  field: string
-): Promise<void> {
+async function decrement(key: string): Promise<void> {
   try {
-    await db.collection(collection).updateOne(
-      { ...key, [field]: { $gt: 0 } },
-      { $inc: { [field]: -1 } }
-    );
+    await getRedis().eval<[], number>(DECREMENT_ABOVE_ZERO, [key], []);
   } catch (err) {
     console.error("Usage refund failed:", err);
   }
+}
+
+async function getCount(key: string): Promise<number> {
+  return Number((await getRedis().get<number>(key)) ?? 0);
 }
 
 export async function checkAndIncrementFeature(
   rawIP: string,
   feature: Feature
 ): Promise<FeatureRateLimitResult> {
-  const db = await getDB();
   const date = getAESTDate();
-  const ip = hashIP(rawIP);
+  const gKey = globalKey(date);
+  const fKey = featureKey(hashIP(rawIP), date, feature);
 
-  const globalCount = await incrementBelowLimit(db, "global_usage", { date }, "count", GLOBAL_LIMIT);
+  const globalCount = await incrementBelowLimit(gKey, GLOBAL_LIMIT);
   if (globalCount === null) {
-    const ipDoc = await db.collection("ip_usage").findOne({ ip, date });
     return {
       allowed: false,
       reason: "global_limit",
-      featureCount: (ipDoc?.[feature] as number | undefined) ?? 0,
+      featureCount: await getCount(fKey),
       globalCount: GLOBAL_LIMIT,
     };
   }
 
-  const refundGlobal = () => decrement(db, "global_usage", { date }, "count");
-
-  const featureCount = await incrementBelowLimit(db, "ip_usage", { ip, date }, feature, FEATURE_LIMITS[feature]);
+  const featureCount = await incrementBelowLimit(fKey, FEATURE_LIMITS[feature]);
   if (featureCount === null) {
-    await refundGlobal();
+    await decrement(gKey);
     return {
       allowed: false,
       reason: "feature_limit",
@@ -137,7 +121,7 @@ export async function checkAndIncrementFeature(
     featureCount,
     globalCount,
     refund: async () => {
-      await Promise.all([refundGlobal(), decrement(db, "ip_usage", { ip, date }, feature)]);
+      await Promise.all([decrement(gKey), decrement(fKey)]);
     },
   };
 }
@@ -145,10 +129,9 @@ export async function checkAndIncrementFeature(
 export async function checkAndIncrementGlobal(): Promise<
   { allowed: true; globalCount: number; refund: RefundFn } | { allowed: false; globalCount: number }
 > {
-  const db = await getDB();
-  const date = getAESTDate();
+  const gKey = globalKey(getAESTDate());
 
-  const globalCount = await incrementBelowLimit(db, "global_usage", { date }, "count", GLOBAL_LIMIT);
+  const globalCount = await incrementBelowLimit(gKey, GLOBAL_LIMIT);
   if (globalCount === null) {
     return { allowed: false, globalCount: GLOBAL_LIMIT };
   }
@@ -156,7 +139,7 @@ export async function checkAndIncrementGlobal(): Promise<
   return {
     allowed: true,
     globalCount,
-    refund: () => decrement(db, "global_usage", { date }, "count"),
+    refund: () => decrement(gKey),
   };
 }
 
@@ -165,19 +148,19 @@ export async function getUsageStatus(rawIP: string): Promise<{
   documents: number;
   globalCount: number;
 }> {
-  const db = await getDB();
   const date = getAESTDate();
   const ip = hashIP(rawIP);
 
-  const [ipDoc, globalDoc] = await Promise.all([
-    db.collection("ip_usage").findOne({ ip, date }),
-    db.collection("global_usage").findOne({ date }),
-  ]);
+  const [analyze, documents, globalCount] = await getRedis().mget<(number | null)[]>(
+    featureKey(ip, date, "analyze"),
+    featureKey(ip, date, "documents"),
+    globalKey(date)
+  );
 
   return {
-    analyze: (ipDoc?.analyze as number | undefined) ?? 0,
-    documents: (ipDoc?.documents as number | undefined) ?? 0,
-    globalCount: globalDoc?.count ?? 0,
+    analyze: Number(analyze ?? 0),
+    documents: Number(documents ?? 0),
+    globalCount: Number(globalCount ?? 0),
   };
 }
 
