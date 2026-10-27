@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { isRateLimitError } from "@/lib/utils";
-import { checkAndIncrementGlobal, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
+import { checkAndIncrementGlobal, GLOBAL_LIMIT, getResetTimeISO, type RefundFn } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
 import { CONTENT_STANDARDS } from "@/prompts/contentStandards";
 import { getCandidateProfile } from "@/lib/candidateProfile";
@@ -19,6 +19,9 @@ function isStudioRequest(req: NextRequest): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  // Set once usage is charged; called on failure so users don't lose a credit
+  let refundUsage: RefundFn | undefined;
+
   try {
     const { skills, jobDescription } = await req.json();
 
@@ -34,6 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await checkAndIncrementGlobal();
+    if (result.allowed) refundUsage = result.refund;
     if (!result.allowed) {
       return NextResponse.json(
         { error: "今日网站使用总次数已满，请明天再试。", reason: "global_limit", globalCount: result.globalCount, globalLimit: GLOBAL_LIMIT, resetAt: getResetTimeISO() },
@@ -105,6 +109,7 @@ Resource type values — use only: "video", "docs", "book", "course", "article"
       const plan = JSON.parse(cleanJson);
       return NextResponse.json(plan);
     } catch (parseError) {
+      await refundUsage?.();
       console.error("JSON parse error. Raw response:", responseText);
       return NextResponse.json(
         { error: "AI returned an invalid format. Please try again." },
@@ -112,6 +117,7 @@ Resource type values — use only: "video", "docs", "book", "course", "article"
       );
     }
   } catch (error: unknown) {
+    await refundUsage?.();
     console.error("Learning plan generation error:", error);
 
     if (isRateLimitError(error)) {

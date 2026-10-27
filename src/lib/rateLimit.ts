@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { MongoServerError, type Db } from "mongodb";
 import clientPromise from "./mongodb";
 
 export const GLOBAL_LIMIT = 40;
@@ -48,9 +49,56 @@ async function getDB() {
   return db;
 }
 
+export type RefundFn = () => Promise<void>;
+
 export type FeatureRateLimitResult =
-  | { allowed: true; featureCount: number; globalCount: number }
+  | { allowed: true; featureCount: number; globalCount: number; refund: RefundFn }
   | { allowed: false; reason: "feature_limit" | "global_limit"; featureCount: number; globalCount: number };
+
+function isDuplicateKeyError(err: unknown): boolean {
+  return err instanceof MongoServerError && err.code === 11000;
+}
+
+// Atomically increments `field` only while it is below `limit`.
+// A full counter makes the filter miss, so the upsert collides with the unique
+// index; one retry covers two first-of-day requests racing to insert.
+async function incrementBelowLimit(
+  db: Db,
+  collection: string,
+  key: Record<string, string>,
+  field: string,
+  limit: number
+): Promise<number | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const doc = await db.collection(collection).findOneAndUpdate(
+        { ...key, $or: [{ [field]: { $lt: limit } }, { [field]: { $exists: false } }] },
+        { $inc: { [field]: 1 }, $set: { updatedAt: new Date() } },
+        { upsert: true, returnDocument: "after" }
+      );
+      return (doc?.[field] as number | undefined) ?? 1;
+    } catch (err) {
+      if (!isDuplicateKeyError(err)) throw err;
+    }
+  }
+  return null;
+}
+
+async function decrement(
+  db: Db,
+  collection: string,
+  key: Record<string, string>,
+  field: string
+): Promise<void> {
+  try {
+    await db.collection(collection).updateOne(
+      { ...key, [field]: { $gt: 0 } },
+      { $inc: { [field]: -1 } }
+    );
+  } catch (err) {
+    console.error("Usage refund failed:", err);
+  }
+}
 
 export async function checkAndIncrementFeature(
   rawIP: string,
@@ -59,62 +107,57 @@ export async function checkAndIncrementFeature(
   const db = await getDB();
   const date = getAESTDate();
   const ip = hashIP(rawIP);
-  const now = new Date();
-  const limit = FEATURE_LIMITS[feature];
 
-  // Check global limit first
-  const globalDoc = await db.collection("global_usage").findOne({ date });
-  if (globalDoc && globalDoc.count >= GLOBAL_LIMIT) {
-    return { allowed: false, reason: "global_limit", featureCount: 0, globalCount: globalDoc.count };
+  const globalCount = await incrementBelowLimit(db, "global_usage", { date }, "count", GLOBAL_LIMIT);
+  if (globalCount === null) {
+    const ipDoc = await db.collection("ip_usage").findOne({ ip, date });
+    return {
+      allowed: false,
+      reason: "global_limit",
+      featureCount: (ipDoc?.[feature] as number | undefined) ?? 0,
+      globalCount: GLOBAL_LIMIT,
+    };
   }
 
-  // Check feature-specific IP limit
-  const ipDoc = await db.collection("ip_usage").findOne({ ip, date });
-  const featureCount: number = ipDoc?.[feature] ?? 0;
-  if (featureCount >= limit) {
-    return { allowed: false, reason: "feature_limit", featureCount, globalCount: globalDoc?.count ?? 0 };
-  }
+  const refundGlobal = () => decrement(db, "global_usage", { date }, "count");
 
-  // Increment both
-  const [updatedIP, updatedGlobal] = await Promise.all([
-    db.collection("ip_usage").findOneAndUpdate(
-      { ip, date },
-      { $inc: { [feature]: 1 }, $set: { updatedAt: now } },
-      { upsert: true, returnDocument: "after" }
-    ),
-    db.collection("global_usage").findOneAndUpdate(
-      { date },
-      { $inc: { count: 1 }, $set: { updatedAt: now } },
-      { upsert: true, returnDocument: "after" }
-    ),
-  ]);
+  const featureCount = await incrementBelowLimit(db, "ip_usage", { ip, date }, feature, FEATURE_LIMITS[feature]);
+  if (featureCount === null) {
+    await refundGlobal();
+    return {
+      allowed: false,
+      reason: "feature_limit",
+      featureCount: FEATURE_LIMITS[feature],
+      globalCount: globalCount - 1,
+    };
+  }
 
   return {
     allowed: true,
-    featureCount: (updatedIP?.[feature] as number | undefined) ?? 1,
-    globalCount: updatedGlobal?.count ?? 1,
+    featureCount,
+    globalCount,
+    refund: async () => {
+      await Promise.all([refundGlobal(), decrement(db, "ip_usage", { ip, date }, feature)]);
+    },
   };
 }
 
 export async function checkAndIncrementGlobal(): Promise<
-  { allowed: true; globalCount: number } | { allowed: false; globalCount: number }
+  { allowed: true; globalCount: number; refund: RefundFn } | { allowed: false; globalCount: number }
 > {
   const db = await getDB();
   const date = getAESTDate();
-  const now = new Date();
 
-  const globalDoc = await db.collection("global_usage").findOne({ date });
-  if (globalDoc && globalDoc.count >= GLOBAL_LIMIT) {
-    return { allowed: false, globalCount: globalDoc.count };
+  const globalCount = await incrementBelowLimit(db, "global_usage", { date }, "count", GLOBAL_LIMIT);
+  if (globalCount === null) {
+    return { allowed: false, globalCount: GLOBAL_LIMIT };
   }
 
-  const updatedGlobal = await db.collection("global_usage").findOneAndUpdate(
-    { date },
-    { $inc: { count: 1 }, $set: { updatedAt: now } },
-    { upsert: true, returnDocument: "after" }
-  );
-
-  return { allowed: true, globalCount: updatedGlobal?.count ?? 1 };
+  return {
+    allowed: true,
+    globalCount,
+    refund: () => decrement(db, "global_usage", { date }, "count"),
+  };
 }
 
 export async function getUsageStatus(rawIP: string): Promise<{

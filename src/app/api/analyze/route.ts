@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { isRateLimitError, isDbError } from "@/lib/utils";
-import { checkAndIncrementFeature, checkAndIncrementGlobal, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
+import { checkAndIncrementFeature, checkAndIncrementGlobal, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO, type RefundFn } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
 import { CONTENT_STANDARDS } from "@/prompts/contentStandards";
 import { getCandidateProfile } from "@/lib/candidateProfile";
@@ -19,6 +19,9 @@ function isStudioRequest(req: NextRequest): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  // Set once usage is charged; called on failure so users don't lose a credit
+  let refundUsage: RefundFn | undefined;
+
   try {
     const { resumeText, jobDescription } = await req.json();
 
@@ -32,6 +35,7 @@ export async function POST(req: NextRequest) {
     const isStudio = isStudioRequest(req);
     if (isStudio) {
       const result = await checkAndIncrementGlobal();
+      if (result.allowed) refundUsage = result.refund;
       if (!result.allowed) {
         return NextResponse.json(
           { error: "今日网站使用总次数已满，请明天再试。", reason: "global_limit", globalCount: result.globalCount, globalLimit: GLOBAL_LIMIT, resetAt: getResetTimeISO() },
@@ -153,6 +157,7 @@ Return ONLY valid JSON — no markdown, no explanation:
       const analysis = JSON.parse(cleanJson);
       return NextResponse.json(analysis);
     } catch {
+      await refundUsage?.();
       console.error("JSON parse error. Raw response:", responseText);
       return NextResponse.json(
         { error: "AI returned an invalid format. Please try again." },
@@ -160,6 +165,7 @@ Return ONLY valid JSON — no markdown, no explanation:
       );
     }
   } catch (error: unknown) {
+    await refundUsage?.();
     console.error("Analysis error:", error);
     if (isRateLimitError(error)) {
       return NextResponse.json({ error: "API rate limit exceeded. Please wait a minute before retrying." }, { status: 429 });

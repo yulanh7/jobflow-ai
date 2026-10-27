@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { isRateLimitError } from "@/lib/utils";
-import { checkAndIncrementGlobal, GLOBAL_LIMIT, getResetTimeISO } from "@/lib/rateLimit";
+import { checkAndIncrementGlobal, GLOBAL_LIMIT, getResetTimeISO, type RefundFn } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
 
 function isStudioRequest(req: NextRequest): boolean {
@@ -16,6 +16,9 @@ interface QAPair {
 }
 
 export async function POST(req: NextRequest) {
+  // Set once usage is charged; called on failure so users don't lose a credit
+  let refundUsage: RefundFn | undefined;
+
   if (!isStudioRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -31,6 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await checkAndIncrementGlobal();
+    if (result.allowed) refundUsage = result.refund;
     if (!result.allowed) {
       return NextResponse.json(
         {
@@ -79,6 +83,7 @@ Return ONLY valid JSON — no markdown, no explanation:
     try {
       return NextResponse.json(JSON.parse(cleanJson));
     } catch {
+      await refundUsage?.();
       console.error("JSON parse error. Raw response:", responseText);
       return NextResponse.json(
         { error: "AI returned an invalid format. Please try again." },
@@ -86,6 +91,7 @@ Return ONLY valid JSON — no markdown, no explanation:
       );
     }
   } catch (error: unknown) {
+    await refundUsage?.();
     console.error("Polish answers error:", error);
     if (isRateLimitError(error)) {
       return NextResponse.json(
