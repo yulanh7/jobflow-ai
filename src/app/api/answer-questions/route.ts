@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isRateLimitError } from "@/lib/utils";
 import { checkAndIncrementGlobal, GLOBAL_LIMIT, getResetTimeISO, type RefundFn } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
-import { CONTENT_STANDARDS } from "@/prompts/contentStandards";
+import { buildSystemInstruction } from "@/prompts/system";
 import { getCandidateProfile } from "@/lib/candidateProfile";
 
 function getIP(req: NextRequest): string {
@@ -48,22 +48,21 @@ export async function POST(req: NextRequest) {
     const candidateProfile = getCandidateProfile();
 
     const prompt = `
-# Rules
-${CONTENT_STANDARDS}
-${candidateProfile ? `\n# Candidate Profile\n${candidateProfile}\n` : ""}
 # Task
 Answer each employer screening question directly and concisely. Base answers ONLY on information in the candidate profile and uploaded resume. Keep each answer to 1-2 sentences maximum.
 
 # Input
-
-## Uploaded Resume
+<resume>
 ${resumeText}
+</resume>
 
-## Job Description
+<job_description>
 ${jobDescription}
+</job_description>
 
-## Employer Questions
+<questions>
 ${questions}
+</questions>
 
 # Output Format
 Return ONLY valid JSON — no markdown, no explanation:
@@ -78,7 +77,11 @@ Return ONLY valid JSON — no markdown, no explanation:
 `;
 
     const responseText = await generateWithFallback(async (client) => {
-      const model = client.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+      const model = client.getGenerativeModel({
+        model: "gemini-2.5-flash-lite",
+        systemInstruction: buildSystemInstruction(candidateProfile),
+        generationConfig: { responseMimeType: "application/json" },
+      });
       const result = await model.generateContent(prompt);
       return result.response.text();
     });

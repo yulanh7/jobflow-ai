@@ -5,7 +5,8 @@ import { SchemaType } from "@google/generative-ai";
 import { isRateLimitError, isDbError } from "@/lib/utils";
 import { checkAndIncrementFeature, checkAndIncrementGlobal, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO, type RefundFn } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
-import { CONTENT_STANDARDS } from "@/prompts/contentStandards";
+import { buildSystemInstruction } from "@/prompts/system";
+import { buildQualificationRules } from "@/prompts/workRights";
 import { getCandidateProfile } from "@/lib/candidateProfile";
 
 function getIP(req: NextRequest): string {
@@ -52,7 +53,6 @@ export async function POST(req: NextRequest) {
       previousResume,
       previousCoverLetter,
       candidateName,
-      paragraphCount,
       companyBackground,
     } = await req.json();
 
@@ -122,56 +122,41 @@ export async function POST(req: NextRequest) {
     const todayDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
     const prompt = `
-# Rules
-${CONTENT_STANDARDS}
-${candidateProfile ? `\n# Candidate Profile\n${candidateProfile}\n` : ""}
 # Task
 ${generateResume ? "Generate a tailored one-page resume." : ""}
 ${generateCoverLetter ? "Generate a tailored cover letter." : ""}
-
 ${feedback && previousResume ? `
 # Revision Instructions
-User feedback on previous version: ${feedback}
+Revise the previous version below based on the user's feedback. Keep everything that was good — only change what the feedback requests.
 
-Previous resume (revise based on feedback above):
+<feedback>
+${feedback}
+</feedback>
+
+<previous_resume>
 ${previousResume}
-${previousCoverLetter ? `\nPrevious cover letter (revise based on feedback above):\n${previousCoverLetter}` : ""}
-Keep everything that was good — only change what the feedback requests.
+</previous_resume>
+${previousCoverLetter ? `\n<previous_cover_letter>\n${previousCoverLetter}\n</previous_cover_letter>` : ""}
 ` : ""}
-
-# Confirmed Qualifications (CRITICAL — runtime data, override defaults)
-CONFIRMED QUALIFICATIONS: ${confirmedQualifications?.length > 0 ? confirmedQualifications.join(", ") : "NONE"}
-1. CITIZENSHIP: If "Australian Citizen" NOT in confirmed list → STRICTLY FORBIDDEN to mention citizenship → use "I hold full Australian working rights."
-2. SECURITY CLEARANCE: If clearance NOT in confirmed list → do NOT claim it.
-   - Citizenship confirmed → "I am an Australian citizen and am ready to undergo the [clearance level] vetting process upon sponsorship."
-   - Citizenship NOT confirmed → "I am willing to undergo all necessary background and suitability checks required for this position."
-3. Never infer PR or citizenship from the resume.
-${confirmedQualifications?.length > 0 ? "- Confirmed qualifications MUST be added to the Skills section and mentioned naturally in the cover letter." : ""}
+${buildQualificationRules(confirmedQualifications)}
 
 # Input
-
-## Uploaded Resume
+<resume>
 ${resumeText}
+</resume>
 
-## Job Description
+<job_description>
 ${jobDescription}
-
-${extraContext ? `## Extra Context from Candidate\n${extraContext}` : ""}
-
-${companyContext ? `## Company Research (use in Para 3 — reference actual product names, platforms, mission; never invent details not present here)
-${companyContext}` : ""}
-
-${companyBackground ? `## Company Background (use in Para 3)
-${companyBackground}` : ""}
-
-${generateResume && paragraphCount ? `# Resume Line Count (CRITICAL)
-Original DOCX has exactly ${paragraphCount} non-empty lines. Rewritten resume MUST output EXACTLY ${paragraphCount} non-empty lines. Count before submitting.` : ""}
-
-${generateResume ? `# Resume Content Integrity (CRITICAL — never violate)
+</job_description>
+${extraContext ? `\n<extra_context>\n${extraContext}\n</extra_context>` : ""}
+${companyContext ? `\n<company_research>\n${companyContext}\n</company_research>\nUse company research in Para 3 — reference actual product names, platforms, mission; never invent details not present there.` : ""}
+${generateResume ? `
+# Resume Content Integrity (CRITICAL — never violate)
 STRICTLY FORBIDDEN: Do not add any skills, tools, frameworks, languages, qualifications, or experience NOT explicitly in the uploaded resume. A low match score means genuine gaps — not permission to fabricate. Only reframe and tailor what already exists.
-After generating the resume, populate "changes" with 3-5 bullets describing what changed (e.g. "Tailored summary to match React/TypeScript focus in JD").` : ""}
+Keep it to one page: never add more bullets to a role than the original resume has.
+Populate "changes" with 3-5 bullets describing what changed (e.g. "Tailored summary to match React/TypeScript focus in JD").
 
-${generateResume ? `# resumeData Output (REQUIRED alongside the plain-text resume field)
+# resumeData Output (REQUIRED alongside the plain-text resume field)
 - name: candidate full name
 - contact_line: email · phone · github · linkedin · portfolio
 - summary: 2-3 sentence summary as a single string
@@ -179,9 +164,9 @@ ${generateResume ? `# resumeData Output (REQUIRED alongside the plain-text resum
 - experience: reverse chronological — each entry: title, company ("Name · City"), date, bullets ([{"bullet": "text"}])
 - education: each entry: degree, institution, date
 resumeData must exactly mirror the plain-text resume field.` : ""}
-
-${generateCoverLetter ? `# Cover Letter Format
-- Header: extract name, email, phone from resume — on separate lines (name, then email, then phone)
+${generateCoverLetter ? `
+# Cover Letter Format
+- Header: extract name, email, phone from the resume — on separate lines (name, then email, then phone)
 - Date: "${todayDate}"
 - Greeting: scan JD for hiring manager name → "Dear [Name]," or "Dear Hiring Manager,"
 - Closing: "Kind regards,\n\n${candidateName?.trim() || "[Your Name]"}"
@@ -195,19 +180,18 @@ Do NOT mention skill gaps in Para 2.
 # Cover Letter Para 3 — Why this role
 ${companyContext ? "Use the company research — name actual products, platforms, or mission. Evidence over enthusiasm." : "Reference specific terms from the JD: named systems, platforms, domains, outcomes. Evidence over enthusiasm."}` : ""}
 
-# Output Format
-Return ONLY valid JSON — no markdown, no explanation:
-{
-  "resume": ${generateResume ? '"full resume as plain text, use \\n for line breaks"' : "null"},
-  "coverLetter": ${generateCoverLetter ? '"full cover letter as plain text, use \\n for line breaks"' : "null"},
-  "changes": ${generateResume ? '["3-5 short bullets describing what changed from the original resume"]' : "null"}
-}
+# Output Fields
+- resume: ${generateResume ? "full resume as plain text, use \\n for line breaks" : "null"}
+- coverLetter: ${generateCoverLetter ? "full cover letter as plain text, use \\n for line breaks" : "null"}
+- changes: ${generateResume ? "3-5 short bullets describing what changed from the original resume" : "null"}
+- resumeData: ${generateResume ? "structured resume as described above" : "null"}
 `;
 
     const responseText = await generateWithFallback(async (client) => {
       // JSON mode guarantees valid JSON output — no escaped-newline issues
       const model = client.getGenerativeModel({
         model: "gemini-2.5-flash-lite",
+        systemInstruction: buildSystemInstruction(candidateProfile),
         generationConfig: {
           responseMimeType: "application/json",
           responseSchema: {

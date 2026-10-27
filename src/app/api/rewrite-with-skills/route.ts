@@ -5,7 +5,8 @@ import { SchemaType } from "@google/generative-ai";
 import { isRateLimitError, isDbError } from "@/lib/utils";
 import { checkAndIncrementFeature, checkAndIncrementGlobal, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO, type RefundFn } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
-import { CONTENT_STANDARDS } from "@/prompts/contentStandards";
+import { buildSystemInstruction } from "@/prompts/system";
+import { buildQualificationRules } from "@/prompts/workRights";
 import { getCandidateProfile } from "@/lib/candidateProfile";
 
 function getIP(req: NextRequest): string {
@@ -30,7 +31,6 @@ export async function POST(req: NextRequest) {
       selectedGaps,
       candidateName,
       confirmedQualifications,
-      paragraphCount,
     } = await req.json();
 
     if (
@@ -90,64 +90,54 @@ export async function POST(req: NextRequest) {
     const todayDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
     const prompt = `
-# Rules
-${CONTENT_STANDARDS}
-${candidateProfile ? `\n# Candidate Profile\n${candidateProfile}\n` : ""}
-# Confirmed Qualifications (CRITICAL — runtime data)
-CONFIRMED QUALIFICATIONS: ${confirmedQualifications?.length > 0 ? confirmedQualifications.join(", ") : "NONE"}
-- CITIZENSHIP: If "Australian Citizen" NOT in confirmed list → DO NOT mention citizenship → use "I hold full Australian working rights."
-- SECURITY CLEARANCE: If clearance NOT in confirmed list → do NOT claim it.
-  - Citizenship confirmed → "I am ready to undergo the vetting process for [Clearance Level] upon sponsorship."
-  - Citizenship NOT confirmed → "I am willing to undergo all required background and character suitability assessments."
-- Never infer citizenship, PR status, or clearance from the resume.
+${buildQualificationRules(confirmedQualifications)}
 
 # Task
 Rewrite the resume and cover letter to incorporate the selected skills.
 
 Skill category behaviour:
-- quick_win: Add to Skills section + new bullet in most relevant role: "Built [demo] using [skill] to [outcome]"
+- quick_win: Add to Skills section + one bullet under a "Personal Projects" section (create it if absent): "Built [demo] using [skill] to [outcome]". Never place it under an employer's role.
 - interview_ready: Add to Skills section only; cover letter: "expanding knowledge in [skill]"
 - long_term: Cover letter only — "I'm aware this role requires [skill] and I'm actively working towards it"
 
 Additional resume constraints:
 - Only use metrics from the original resume — never invent numbers
 - Keep all original job titles, company names, and dates unchanged
+- Keep it to one page: never add more bullets to a role than the original resume has
 - Output plain text — no markdown, no asterisks, no bold markers
 
-${paragraphCount ? `Line count (CRITICAL): original DOCX has exactly ${paragraphCount} non-empty lines. Rewritten resume MUST output EXACTLY ${paragraphCount} non-empty lines.` : ""}
-
 # Input
-
-## Uploaded Resume
+<resume>
 ${resumeText}
+</resume>
 
-## Job Description
+<job_description>
 ${jobDescription}
+</job_description>
 
-## Selected Skills to Incorporate
+<selected_skills>
 ${JSON.stringify(selectedGaps, null, 2)}
+</selected_skills>
 
 # Cover Letter Format
-- Header: extract name, email, phone from the uploaded resume — output on separate lines (name, then email, then phone)
+- Header: extract name, email, phone from the resume — output on separate lines (name, then email, then phone)
 - Date: "${todayDate}"
 - Greeting: scan JD for hiring manager name → "Dear [Name]," or "Dear Hiring Manager,"
 - Closing: "Kind regards,\n\n${candidateName?.trim() || "[Your Name]"}"
 
 # Cover Letter Para 2 — weave in new skills
-For quick_win skills: mention as recently applied. For interview_ready: "expanding knowledge in [skill]". For long_term: one honest sentence only. Do NOT list technologies — tell a story about impact.
+For quick_win skills: mention as a recent personal project. For interview_ready: "expanding knowledge in [skill]". For long_term: one honest sentence only. Do NOT list technologies — tell a story about impact.
 
-# Output Format
-Return ONLY valid JSON — no markdown, no explanation:
-{
-  "resume": "full rewritten resume as plain text, use \\n for line breaks",
-  "coverLetter": "full rewritten cover letter as plain text, use \\n for line breaks"
-}
+# Output Fields
+- resume: full rewritten resume as plain text, use \\n for line breaks
+- coverLetter: full rewritten cover letter as plain text, use \\n for line breaks
 `;
 
     const responseText = await generateWithFallback(async (client) => {
       // JSON mode guarantees valid JSON output
       const model = client.getGenerativeModel({
         model: "gemini-2.5-flash-lite",
+        systemInstruction: buildSystemInstruction(candidateProfile),
         generationConfig: {
           responseMimeType: "application/json",
           responseSchema: {

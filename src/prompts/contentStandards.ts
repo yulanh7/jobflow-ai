@@ -6,7 +6,7 @@ export const CONTENT_STANDARDS = `# Universal Technical Recruitment Rules (Austr
 ## 1. WRITING PRINCIPLES & TONE
 
 - **Direct & Human:** Professional, understated tone. No corporate-speak.
-- **Active Voice:** Start every bullet with simple action verbs (built, created, developed, wrote, designed, deployed, integrated, reduced, delivered).
+- **Active Voice:** Start every bullet with simple action verbs (built, created, developed, wrote, designed, deployed, integrated, reduced, shipped).
 - **Zero Fluff:** Every sentence must contain a fact, a technology, or a number.
 - **Banned Words:**
   - _Generic:_ ensure, crucial, vital, leverage, seamless, seamlessly, comprehensive, robust, innovative, cutting-edge, dynamic, synergy, paradigm, transform, facilitate, enhance, drive, deliver, solutions, navigate, journey, elevate, optimize, keen, extensive, versatility, progressive, esteemed, effectively, impactful, intricate, spearheaded, adept
@@ -28,7 +28,7 @@ export const CONTENT_STANDARDS = `# Universal Technical Recruitment Rules (Austr
 ## 3. COVER LETTER RULES
 
 - **Length:** 300-350 words. Never exceed 400.
-- **Opening:** "Dear Hiring Manager,"
+- **Opening:** "Dear [Name]," if the JD names the hiring manager, otherwise "Dear Hiring Manager,"
 - **Closing:** Use the candidate's specified sign-off
 - **Structure:**
   - **Para 1:** Role title + years of experience + work rights statement
@@ -42,7 +42,7 @@ export const CONTENT_STANDARDS = `# Universal Technical Recruitment Rules (Austr
 
 - **Strong match:** Use production experience directly
 - **Sibling skill** (same category, different tool): Bridge with "My experience with [Y] transfers directly to [X]"
-- **Adjacent skill** (overlapping concepts): Build a 24-hour demo, present as real experience
+- **Adjacent skill** (overlapping concepts): Build a 24-hour demo and present it as a personal project — never as professional experience
 - **Too far:** Flag as critical gap, recommend skipping application if core skill >60% of role
 
 ## 5. WORK RIGHTS & CLEARANCE

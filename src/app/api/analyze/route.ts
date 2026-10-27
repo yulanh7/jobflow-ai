@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { isRateLimitError, isDbError } from "@/lib/utils";
 import { checkAndIncrementFeature, checkAndIncrementGlobal, FEATURE_LIMITS, GLOBAL_LIMIT, getResetTimeISO, type RefundFn } from "@/lib/rateLimit";
 import { generateWithFallback } from "@/lib/gemini";
-import { CONTENT_STANDARDS } from "@/prompts/contentStandards";
+import { SchemaType, type ResponseSchema } from "@google/generative-ai";
+import { buildSystemInstruction, RESOURCE_URL_RULE } from "@/prompts/system";
 import { getCandidateProfile } from "@/lib/candidateProfile";
 
 function getIP(req: NextRequest): string {
@@ -17,6 +18,72 @@ function isStudioRequest(req: NextRequest): boolean {
   const pw = req.headers.get("x-studio-password");
   return !!process.env.STUDIO_PASSWORD && pw === process.env.STUDIO_PASSWORD;
 }
+
+const STRING = { type: SchemaType.STRING } as const;
+const STRING_LIST = { type: SchemaType.ARRAY, items: STRING } as const;
+
+const ANALYSIS_SCHEMA: ResponseSchema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    score: { type: SchemaType.INTEGER },
+    summary: STRING,
+    strengths: STRING_LIST,
+    gaps: STRING_LIST,
+    suggestions: STRING_LIST,
+    skillGaps: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          skill: STRING,
+          reason: STRING,
+          category: {
+            type: SchemaType.STRING,
+            format: "enum",
+            enum: ["interview_ready", "quick_win", "long_term"],
+          },
+          timeEstimate: STRING,
+          interviewTip: STRING,
+          quickWinPlan: STRING,
+          longTermPartA: STRING,
+          longTermPartB: STRING,
+          steps: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                day: STRING,
+                task: STRING,
+                resources: {
+                  type: SchemaType.ARRAY,
+                  items: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                      type: {
+                        type: SchemaType.STRING,
+                        format: "enum",
+                        enum: ["video", "docs", "book", "course", "article"],
+                      },
+                      title: STRING,
+                      url: STRING,
+                    },
+                    required: ["type", "title", "url"],
+                  },
+                },
+                aiPrompt: STRING,
+              },
+              required: ["day", "task", "resources", "aiPrompt"],
+            },
+          },
+          demoProject: STRING,
+          resumeBullet: STRING,
+        },
+        required: ["skill", "reason", "category", "timeEstimate", "interviewTip", "steps", "demoProject", "resumeBullet"],
+      },
+    },
+  },
+  required: ["score", "summary", "strengths", "gaps", "suggestions", "skillGaps"],
+};
 
 export async function POST(req: NextRequest) {
   // Set once usage is charged; called on failure so users don't lose a credit
@@ -66,11 +133,8 @@ export async function POST(req: NextRequest) {
     const candidateProfile = isStudio ? getCandidateProfile() : "";
 
     const prompt = `
-# Rules
-${CONTENT_STANDARDS}
-${candidateProfile ? `\n# Candidate Profile\n${candidateProfile}\n` : ""}
 # Task
-Evaluate the candidate's alignment with the provided Job Description. Score 0-100:
+Evaluate the candidate's alignment with the job description. Score 0-100:
 - 80-100: Strong match, most required skills explicitly present
 - 60-79: Good match, majority of skills present with minor gaps
 - 40-59: Moderate match, some key skills missing
@@ -78,71 +142,58 @@ Evaluate the candidate's alignment with the provided Job Description. Score 0-10
 
 Base evaluation ONLY on explicit evidence in the resume. Do not infer skills. Scoring must be objective.
 
+# Field Rules
+- summary: 2-3 sentence overview
+- strengths: specific skill matches between resume and JD
+- gaps: missing mandatory skills or eligibility requirements
+- suggestions: actionable advice referencing specific resume content
+
 # skillGaps Rules
 - Only include skills explicitly required by the JD that are absent from the resume
 - Maximum 5 entries, ordered by impact on the hiring decision
-- If no gaps exist, return an empty array [] — never omit the field
+- If no gaps exist, return an empty array
 - Never include language skills as skill gaps — note them in the gaps array instead
 - Citizenship, residency, and clearance requirements → gaps array only, never skillGaps
 
 # Category Definitions (assign honestly — do not over-optimise)
 - interview_ready: Conceptual only, 4-8 hours. Can be discussed in interview but not built yet.
-- quick_win: Genuinely learnable 24-48 hours, buildable demo, addable to resume.
+- quick_win: Genuinely learnable in 24-48 hours, buildable demo, addable to resume as a personal project.
 - long_term: 1+ month sustained effort to reach employable level.
 
-Every skill must have an interviewTip. Omit category-specific plan fields that don't apply.
+Every skill gap must have an interviewTip. Fill quickWinPlan only for quick_win, longTermPartA/longTermPartB only for long_term.
 
-# Learning Plan (REQUIRED for every skillGap — even if gaps array is empty, return skillGaps: [])
-For EACH skill gap, generate a practical learning plan immediately actionable. Use only real, existing resources (official docs, YouTube, Coursera, MDN). If a URL is uncertain, use the platform name as the url value.
-
-Learning plan additions per skillGap:
+# Learning Plan (required for every skill gap)
 - steps: 2-4 steps proportional to timeEstimate
   - day: e.g. "Day 1 (3hrs)"
   - task: concrete action to take
-  - resources: at least one per step — [{type, title, url}] (types: "video" "docs" "book" "course" "article")
+  - resources: at least one per step, type is one of video, docs, book, course, article
   - aiPrompt: a practical prompt the user can paste into an AI assistant to learn hands-on
-- demoProject: one specific, buildable demo that proves this skill on a resume (one sentence)
-- resumeBullet: "Built [X] using [skill] to [outcome]" — ready to paste
+- demoProject: one specific, buildable demo that proves this skill (one sentence)
+- resumeBullet: "Built [X] using [skill] to [outcome]" — for a personal project, ready to paste
+- ${RESOURCE_URL_RULE}
 
 # Input
-RESUME: ${resumeText}
-JOB DESCRIPTION: ${jobDescription}
+<resume>
+${resumeText}
+</resume>
 
-# Output Format
-Return ONLY valid JSON — no markdown, no explanation:
-{
-  "score": 0-100,
-  "summary": "2-3 sentence overview",
-  "strengths": ["Specific skill match"],
-  "gaps": ["Missing mandatory skill or eligibility requirement"],
-  "suggestions": ["Actionable advice referencing specific resume content"],
-  "skillGaps": [
-    {
-      "skill": "Angular",
-      "reason": "Explicitly required in JD but not found in resume",
-      "category": "quick_win",
-      "timeEstimate": "24-48 hours",
-      "interviewTip": "...",
-      "quickWinPlan": "(quick_win only) ...",
-      "longTermPartA": "(long_term only) ...",
-      "longTermPartB": "(long_term only) ...",
-      "steps": [
-        {
-          "day": "Day 1 (4hrs)",
-          "task": "...",
-          "resources": [{"type": "video", "title": "Angular Crash Course", "url": "https://youtube.com/..."}],
-          "aiPrompt": "Teach me Angular components with a hands-on example..."
-        }
-      ],
-      "demoProject": "Build a task manager SPA with Angular routing and services",
-      "resumeBullet": "Built a task manager SPA using Angular to demonstrate component-based architecture"
-    }
-  ]
-}
+<job_description>
+${jobDescription}
+</job_description>
 `;
 
     const responseText = await generateWithFallback(async (client) => {
-      const model = client.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+      // JSON mode + schema: long nested output from flash-lite otherwise breaks JSON.parse
+      const model = client.getGenerativeModel({
+        model: "gemini-2.5-flash-lite",
+        systemInstruction: buildSystemInstruction(candidateProfile),
+        generationConfig: {
+          // Low temperature keeps scores stable across reruns of the same input
+          temperature: 0.2,
+          responseMimeType: "application/json",
+          responseSchema: ANALYSIS_SCHEMA,
+        },
+      });
       const result = await model.generateContent(prompt);
       return result.response.text();
     });
